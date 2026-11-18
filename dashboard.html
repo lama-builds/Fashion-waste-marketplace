@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Dashboard · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  var content = document.getElementById('content');
+  App.footer();
+  App.renderNav('dash');
+  if (!App.gate(content, false)) return;
+  var user = App.me();
+  // One role per account: sellers see the selling dashboard, buyers see the buying dashboard.
+  var tab = user.role === 'seller' ? 'selling' : 'buying';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = App.esc;
+
+  function kpi(v, label, sub) { return '<div class="stat"><b>' + v + '</b><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+  function egp(n) { return 'EGP ' + AI.fmt(n); }
+  function thumb(l) { return App.media(App.coverOf(l.id), l.title); }
+
+  /* ---------- order rows ---------- */
+  function orderRow(o, as) {
+    var l = App.listing(o.listing_id); if (!l) return '';
+    var other = App.profile(as === 'seller' ? o.buyer_id : o.seller_id);
+    var acts = '';
+    if (as === 'seller') {
+      if (o.status === 'requested') acts = '<button type="button" class="btn btn-primary btn-sm" data-os="accepted" data-id="' + o.id + '">Accept</button><button type="button" class="btn btn-quiet btn-sm" data-os="declined" data-id="' + o.id + '">Decline</button>';
+      else if (o.status === 'accepted') acts = '<button type="button" class="btn btn-primary btn-sm" data-os="completed" data-id="' + o.id + '">Mark completed</button><button type="button" class="btn btn-quiet btn-sm" data-os="cancelled" data-id="' + o.id + '">Cancel</button>';
+    } else if (o.status === 'requested' || o.status === 'accepted') {
+      acts = '<button type="button" class="btn btn-quiet btn-sm" data-os="cancelled" data-id="' + o.id + '">Cancel request</button>';
+    }
+    return '<article class="item" aria-label="Order for ' + esc(l.title) + '">' + thumb(l) +
+      '<div style="min-width:0"><h3><a href="listing.html#' + l.id + '">' + esc(l.title) + '</a></h3>' +
+      '<div class="meta">' + o.quantity + ' ' + l.unit + ' · ' + (o.total ? egp(o.total) : 'Free') + ' · ' + (as === 'seller' ? 'Buyer' : 'Seller') + ': ' + esc(other ? other.full_name : 'Unknown') + ' · ' + App.timeAgo(o.created_at) + '</div>' +
+      (o.note ? '<div class="meta">Note: ' + esc(o.note) + '</div>' : '') +
+      '<div style="margin-top:6px">' + App.orderBadge(o.status) + '</div></div>' +
+      (acts ? '<div class="acts">' + acts + '</div>' : '') + '</article>';
+  }
+  function section(title, sub, body, id) {
+    return '<section class="stack" style="gap:12px"' + (id ? ' id="' + id + '"' : '') + '><div class="section-head"><h2>' + title + '</h2>' + (sub ? '<p>' + sub + '</p>' : '') + '</div>' + body + '</section>';
+  }
+  function emptyBox(msg, link) { return '<div class="empty"><span>' + msg + '</span>' + (link || '') + '</div>'; }
+
+  /* ---------- BUYING ---------- */
+  function buying() {
+    var mine = App.ordersWhere(function (o) { return o.buyer_id === user.id; });
+    var open = mine.filter(function (o) { return o.status === 'requested' || o.status === 'accepted'; });
+    var done = mine.filter(function (o) { return o.status === 'completed'; });
+    var saved = App.state.saved.filter(function (s) { return s.user_id === user.id; }).map(function (s) { return App.listing(s.listing_id); }).filter(Boolean);
+    var kg = AI.sumKg(done), imp = AI.impactOf(kg), spent = done.reduce(function (a, o) { return a + o.total; }, 0);
+    var h = '<div class="kpis five">' + kpi(open.length, 'Open requests') + kpi(done.length, 'Completed orders') + kpi(egp(spent), 'Spent on completed') + kpi(saved.length, 'Saved products') + kpi(AI.fmt(kg) + ' kg', 'Textile you kept in use', 'Estimate') + '</div>';
+    h += section('Recommended for you', 'Smart matching from your saved preferences', '<div id="recs" class="list"><span class="muted">Finding matches…</span></div><p class="hint"><a href="ai-studio.html#match">Change what you are looking for</a></p>', 'recs-sec');
+    h += section('My order requests', open.length + ' open, ' + done.length + ' completed', mine.length ? '<div class="list">' + mine.map(function (o) { return orderRow(o, 'buyer'); }).join('') + '</div>' : emptyBox('You have not requested any materials yet.', '<a class="btn btn-primary btn-sm" href="index.html">Browse materials</a>'));
+    h += section('Saved products', saved.length + ' saved', saved.length ? '<div class="grid" id="saved-grid">' + saved.map(App.cardHTML).join('') + '</div>' : emptyBox('Tap the heart on any listing to keep it here.', '<a class="btn btn-quiet btn-sm" href="index.html">Find something to save</a>'), 'saved');
+    h += section('Your impact as a buyer', 'Based on completed orders', '<div class="ai-card"><div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + kpi(AI.fmt(kg) + ' kg', 'Reused') + kpi(AI.fmt(imp.co2) + ' kg', 'CO2e avoided') + kpi(AI.fmt(imp.water / 1000) + ' m³', 'Water saved') + '</div><p class="hint">Estimates from placeholder factors. See <a href="impact.html#assumptions">assumptions</a>.</p></div>');
+    return h;
+  }
+
+  /* ---------- SELLING ---------- */
+  function selling() {
+    var mine = App.state.listings.filter(function (l) { return l.seller_id === user.id; });
+    var orders = App.ordersWhere(function (o) { return o.seller_id === user.id; });
+    var pending = orders.filter(function (o) { return o.status === 'requested'; });
+    var active = orders.filter(function (o) { return o.status === 'accepted'; });
+    var done = orders.filter(function (o) { return o.status === 'completed'; });
+    var revenue = done.reduce(function (a, o) { return a + o.total; }, 0);
+    var avail = mine.filter(function (l) { return l.status === 'available'; });
+    var invValue = avail.reduce(function (a, l) { return a + (l.is_free ? 0 : l.price * l.quantity); }, 0);
+    var kg = AI.sumKg(done), imp = AI.impactOf(kg);
+    var h = '<div class="kpis five">' + kpi(avail.length, 'Active listings', mine.length + ' total') + kpi(pending.length, 'New requests') + kpi(done.length, 'Completed sales') + kpi(egp(revenue), 'Revenue (completed)') + kpi(egp(invValue), 'Inventory value', 'Asking prices') + '</div>';
+    if (!mine.length && !orders.length) {
+      h += emptyBox('You have not listed anything yet. Add your first lot to start receiving requests.', '<a class="btn btn-primary btn-sm" href="create.html">Create a listing</a>');
+    }
+    h += section('Order requests', pending.length + ' waiting, ' + active.length + ' accepted', orders.length ? '<div class="list" id="seller-orders">' + orders.map(function (o) { return orderRow(o, 'seller'); }).join('') + '</div>' : emptyBox('Requests from buyers will show here.'));
+    var rows = mine.map(function (l) {
+      var est = AI.estimate({ qty: l.quantity, unit: l.unit, fabric: l.fabric_type, condition: l.condition, category: AI.catName(l.category_id) });
+      return '<tr><td><a href="listing.html#' + l.id + '">' + esc(l.title) + '</a></td><td>' + esc(AI.fabricLabel(l.fabric_type)) + '</td><td>' + l.quantity + ' ' + l.unit + '</td><td>' + (l.is_free ? 'Free' : 'EGP ' + AI.fmt(l.price, 1)) + '</td><td>' + egp(est.total.low) + ' to ' + AI.fmt(est.total.high) + '</td><td>' + App.badge(l.status) + '</td></tr>';
+    }).join('');
+    h += section('Available inventory', 'Estimated value uses a sample price table', mine.length ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Listing</th><th>Fabric</th><th>Quantity</th><th>Asking</th><th>Est. lot value</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="hint"><a href="my-listings.html">Manage listing status</a></p>' : emptyBox('No listings yet.'));
+    h += section('Transactions', 'Completed sales', done.length ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Material</th><th>Buyer</th><th>Quantity</th><th>Total</th></tr></thead><tbody>' + done.map(function (o) { var l = App.listing(o.listing_id), b = App.profile(o.buyer_id); return '<tr><td>' + new Date(o.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + '</td><td>' + esc(l ? l.title : '') + '</td><td>' + esc(b ? b.full_name : '') + '</td><td>' + o.quantity + ' ' + (l ? l.unit : '') + '</td><td>' + (o.total ? egp(o.total) : 'Free') + '</td></tr>'; }).join('') + '</tbody></table></div>' : emptyBox('Completed sales will show here.'));
+    // marketplace activity: latest orders on the whole marketplace (listing names only)
+    var act = App.state.orders.slice().sort(function (a, b) { return new Date(b.updated_at) - new Date(a.updated_at); }).slice(0, 6).map(function (o) {
+      var l = App.listing(o.listing_id); if (!l) return '';
+      var verb = { requested: 'requested', accepted: 'accepted a request for', completed: 'completed a sale of', declined: 'declined a request for', cancelled: 'cancelled a request for' }[o.status];
+      return '<li><span>Someone ' + verb + ' <a href="listing.html#' + l.id + '">' + esc(l.title) + '</a></span><time>' + App.timeAgo(o.updated_at) + '</time></li>';
+    }).join('');
+    h += section('Marketplace activity', 'Latest across the marketplace', '<ul class="feed">' + act + '</ul>');
+    h += section('Your impact as a seller', 'Textile you kept out of landfill through completed sales', '<div class="ai-card"><div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + kpi(AI.fmt(kg) + ' kg', 'Diverted from waste') + kpi(AI.fmt(imp.co2) + ' kg', 'CO2e avoided') + kpi(AI.fmt(imp.water / 1000) + ' m³', 'Water saved') + '</div><p class="hint">Estimates from placeholder factors. See <a href="impact.html#assumptions">assumptions</a>.</p></div>');
+    return h;
+  }
+
+  function render() {
+    content.innerHTML = '<div class="stack" style="gap:20px"><div><h1>' + (tab === 'selling' ? 'Seller dashboard' : 'Buyer dashboard') + '</h1><p class="muted" style="margin-top:4px">Hello ' + esc(user.full_name.split(' ')[0]) + '. ' + (tab === 'selling' ? 'Here is what is happening with the materials you sell.' : 'Here is what is happening with the materials you want.') + '</p></div>' + '<div class="stack" style="gap:28px" role="tabpanel">' + (tab === 'buying' ? buying() : selling()) + '</div></div>';
+    if (tab === 'buying') {
+      var g = $('saved-grid'); if (g) App.bindSave(g, render);
+      loadRecs();
+    }
+    App.renderNav('dash');
+  }
+  function loadRecs() {
+    var el = $('recs'); if (!el) return;
+    var res = { engine: 'sim', items: AI.matchSim(AI.prefsFor(user.id), App.state.listings, user.id) };
+    var items = res.items.slice(0, 3);
+    $('recs').innerHTML = items.length ? items.map(function (m) {
+      var l = m.listing;
+      return '<article class="match">' + thumb(l) + '<div style="min-width:0"><h3><a href="listing.html#' + l.id + '">' + esc(l.title) + '</a></h3><div class="meta" style="font-size:13px;color:var(--muted)">' + l.quantity + ' ' + l.unit + ' · ' + esc(l.city) + ' · ' + (l.is_free ? 'Free' : 'EGP ' + AI.fmt(l.price, 1) + ' per ' + App.UNIT_ONE[l.unit]) + '</div></div><div class="score">' + m.score + '<small>fit</small></div><div class="chips">' + m.reasons.slice(0, 3).map(function (r) { return '<span class="chip">' + esc(r) + '</span>'; }).join('') + '</div></article>';
+    }).join('') + '<div class="row" style="gap:8px">' + AI.engineChip('sim') + '<span class="hint">Rule-based. Ask Claude to re-rank in <a href="ai-studio.html#match">AI Studio</a>.</span></div>' : '<div class="empty"><span>No available materials match your preferences yet.</span></div>';
+  }
+
+  content.addEventListener('click', function (e) {
+    var t;
+    if ((t = e.target.closest('[data-os]'))) {
+      var st = t.getAttribute('data-os'); App.setOrderStatus(t.getAttribute('data-id'), st);
+      App.toast({ accepted: 'Request accepted. Agree pickup with the buyer on WhatsApp.', declined: 'Request declined.', completed: 'Marked completed. Inventory updated.', cancelled: 'Cancelled.' }[st]);
+      render();
+    }
+  });
+  render();
+  if (location.hash === '#saved' && tab === 'buying') { var s = $('saved'); if (s) s.scrollIntoView(); }
+})();
+</script>
+</body>
+</html>

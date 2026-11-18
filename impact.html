@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Impact · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content" class="stack" style="gap:28px"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  App.renderNav('impact');
+  App.footer();
+  var esc = App.esc, F = AI.FACTORS;
+  var done = App.state.orders.filter(function (o) { return o.status === 'completed'; });
+  var kg = AI.sumKg(done), imp = AI.impactOf(kg), waiting = AI.availableKg(), wimp = AI.impactOf(waiting);
+  function kpi(v, label, sub) { return '<div class="stat"><b>' + v + '</b><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+
+  /* last 6 calendar months of completed orders */
+  var now = new Date(), months = [];
+  for (var i = 5; i >= 0; i--) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ y: d.getFullYear(), m: d.getMonth(), label: d.toLocaleDateString('en-GB', { month: 'short' }), kg: 0 }); }
+  done.forEach(function (o) { var d = new Date(o.updated_at); months.forEach(function (x) { if (x.y === d.getFullYear() && x.m === d.getMonth()) x.kg += AI.orderKg(o); }); });
+  var maxM = Math.max.apply(null, months.map(function (x) { return x.kg; }).concat([1]));
+  var chart = '<div class="chart" role="img" aria-label="Textile reused per month in kilograms: ' + months.map(function (x) { return x.label + ' ' + Math.round(x.kg); }).join(', ') + '">' +
+    months.map(function (x) { return '<div class="col"><div class="barwrap"><div class="b" style="height:' + Math.round(x.kg / maxM * 100) + '%"></div></div><strong>' + AI.fmt(x.kg) + '</strong><span>' + x.label + '</span></div>'; }).join('') + '</div>';
+
+  /* by fabric */
+  var byF = {};
+  done.forEach(function (o) { var l = App.listing(o.listing_id); if (!l) return; byF[l.fabric_type] = (byF[l.fabric_type] || 0) + AI.orderKg(o); });
+  var fabRows = Object.keys(byF).sort(function (a, b) { return byF[b] - byF[a]; });
+  var maxF = fabRows.length ? byF[fabRows[0]] : 1;
+  var bars = fabRows.length ? fabRows.map(function (k) { return '<div class="bar-row"><span>' + esc(AI.fabricLabel(k)) + '</span><div class="meter"><span style="width:' + Math.round(byF[k] / maxF * 100) + '%"></span></div><span class="v">' + AI.fmt(byF[k]) + ' kg</span></div>'; }).join('') : '<p class="muted">No completed orders yet.</p>';
+
+  var factorRows = [
+    ['Weight of 1 meter of fabric', F.metersToKg + ' kg', 'Mid-weight woven fabric, about 150 g per square meter at 1.5 m width'],
+    ['Weight of a new garment', F.pieceKg['New clothing'] + ' kg', 'Average of tops and bottoms'],
+    ['Weight of a used garment', F.pieceKg['Used clothing'] + ' kg', 'Heavier on average (denim, outerwear)'],
+    ['Weight of a trim or accessory', F.pieceKg['Trims & accessories'] + ' kg', 'Buttons, zips, labels'],
+    ['CO2e avoided per kg reused', F.co2PerKg + ' kg', 'Placeholder. Real values depend on fibre, dyeing and what the reused fabric replaces'],
+    ['Water saved per kg reused', AI.fmt(F.waterPerKg) + ' L', 'Placeholder. Cotton is much higher, polyester much lower'],
+    ['Weight of one T-shirt', F.tshirtKg + ' kg', 'Used for the "T-shirt equivalents" figure']
+  ];
+
+  document.getElementById('content').innerHTML =
+    '<div><h1>Sustainability impact</h1><p class="lede" style="margin-top:6px">How much textile this marketplace keeps in use. Numbers come from the sample orders in this prototype and from placeholder factors, so treat them as illustrations, not audited results.</p></div>' +
+    '<section class="stack" style="gap:12px" aria-label="Key figures"><div class="kpis four">' +
+      kpi(AI.fmt(kg) + ' kg', 'Textile reused', 'From ' + done.length + ' completed orders') +
+      kpi(AI.fmt(imp.co2 / 1000, 1) + ' t', 'CO2e avoided', 'Estimate') +
+      kpi(AI.fmt(imp.water / 1000) + ' m³', 'Water saved', 'Estimate') +
+      kpi(AI.fmt(imp.tshirts), 'T-shirt equivalents', 'Of fabric kept in use') +
+    '</div></section>' +
+    '<section class="cols two"><div class="ai-card"><header><h2 style="font-size:18px">Reused per month</h2><span class="engine sim">Sample data</span></header>' + chart + '<p class="hint">Kilograms from orders marked completed, by month.</p></div>' +
+      '<div class="ai-card"><header><h2 style="font-size:18px">Reused by fabric</h2></header><div class="stack" style="gap:10px">' + bars + '</div></div></section>' +
+    '<section class="band" style="grid-template-columns:1fr"><div><h2>Waiting for a second life</h2><p class="muted" style="margin-top:4px"><strong>' + AI.fmt(waiting) + ' kg</strong> is listed and available right now. If it is all reused it avoids about <strong>' + AI.fmt(wimp.co2 / 1000, 1) + ' t</strong> of CO2e and <strong>' + AI.fmt(wimp.water / 1000) + ' m³</strong> of water.</p></div><div class="row"><a class="btn btn-primary" href="index.html#browse">Browse materials</a><a class="btn btn-quiet" href="create.html">List your surplus</a></div></section>' +
+    '<section class="stack" style="gap:12px"><div class="section-head"><h2>How circular fashion works here</h2><p>Keeping materials in the loop</p></div><ol class="flow">' +
+      '<li><b>1. Surplus appears</b><span>Factories, boutiques and households list leftovers.</span></li>' +
+      '<li><b>2. Classify and value</b><span>Photos and AI tools help describe the lot.</span></li>' +
+      '<li><b>3. Match</b><span>Designers and makers find fitting materials.</span></li>' +
+      '<li><b>4. Remake</b><span>New products, upcycled pieces or recycled fibre.</span></li>' +
+      '<li><b>5. Measure</b><span>Reused weight is tracked on this page.</span></li></ol></section>' +
+    '<section class="stack" style="gap:12px"><div class="section-head"><h2>Sustainable production highlights</h2><p>What the marketplace makes easier</p></div><div class="cols three">' +
+      '<div class="ai-card"><h3>Use what already exists</h3><p class="muted">Deadstock and overruns already carry the water, energy and labor of production. Reusing them avoids making new fabric.</p></div>' +
+      '<div class="ai-card"><h3>Make small, local runs</h3><p class="muted">Lots are listed by city, so small labels can source nearby and cut transport.</p></div>' +
+      '<div class="ai-card"><h3>Design for the next life</h3><p class="muted">Upcycling ideas on each listing show what a lot can become, from bags to home textiles.</p></div></div></section>' +
+    '<section class="stack" style="gap:12px" id="assumptions"><div class="section-head"><h2>Assumptions behind the numbers</h2><p>Placeholders to verify before any public claim</p></div>' +
+      '<div class="table-wrap"><table class="tbl"><thead><tr><th>Factor</th><th>Value used</th><th>Note</th></tr></thead><tbody>' + factorRows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<div class="disclose"><strong>Prototype notice.</strong> Orders and listings are sample data stored in this browser. The environmental factors are rough placeholders, not measured or certified. A production version should use fibre-specific life-cycle data and confirm quantities with weighed hand-overs.</div></section>';
+})();
+</script>
+</body>
+</html>

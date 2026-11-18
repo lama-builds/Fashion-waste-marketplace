@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>My profile · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  App.renderNav('profile');
+  App.footer();
+  var content = document.getElementById('content');
+  if (!App.gate(content, false)) return;
+  var user = App.me();
+  var avatarUrl = user.avatar_url || null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function headHTML() {
+    return App.avatar({ full_name: $('full_name') ? ($('full_name').value || user.full_name) : user.full_name, avatar_url: avatarUrl }, 'avatar-lg');
+  }
+
+  content.innerHTML =
+    '<div class="narrow">' +
+      '<div class="profile-head"><span id="av">' + App.avatar(user, 'avatar-lg') + '</span>' +
+        '<div class="grow"><h1 id="name-h">' + App.esc(user.full_name) + '</h1><p class="muted">' + App.cap(user.role) + ' · Member since ' + App.monthYear(user.created_at) + '</p></div></div>' +
+      '<form id="form" class="panel stack" novalidate>' +
+        '<div id="errs"></div>' +
+        '<div class="field"><span class="label">Profile photo</span>' +
+          '<div class="row"><label class="btn btn-quiet btn-sm" for="avatar-file" style="cursor:pointer">Choose photo</label><input class="sr-only" id="avatar-file" type="file" accept="image/*"><button type="button" class="btn btn-quiet btn-sm" id="avatar-rm">Remove</button></div></div>' +
+        '<div class="field"><label for="full_name">Full name</label><input id="full_name" type="text" autocomplete="name"></div>' +
+        '<fieldset class="field"><legend class="label">Role</legend>' +
+          '<div class="pick-row">' +
+            '<label class="pick"><input type="radio" name="role" value="buyer"><span>Buyer</span></label>' +
+            '<label class="pick"><input type="radio" name="role" value="seller"><span>Seller</span></label>' +
+          '</div><span class="hint">Choose one. Only sellers can post listings; buyers can request and save materials.</span></fieldset>' +
+        '<div class="field"><label for="phone">Phone</label><input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01012345678"></div>' +
+        '<div class="field"><label for="whatsapp_number">WhatsApp number</label><input id="whatsapp_number" type="tel" inputmode="tel" placeholder="01012345678 or +201012345678"><span class="hint">Buyers use this to contact you. Required for sellers.</span></div>' +
+        '<div class="field"><label for="city">City</label><select id="city"></select></div>' +
+        '<div class="row"><button class="btn btn-primary" type="submit">Save changes</button></div>' +
+      '</form>' +
+      '<button type="button" class="btn btn-quiet" id="out">Log out</button>' +
+    '</div>';
+
+  App.fillSelect($('city'), App.CITIES, 'Not set');
+  $('full_name').value = user.full_name;
+  $('phone').value = App.waShow(user.phone);
+  $('whatsapp_number').value = App.waShow(user.whatsapp_number);
+  $('city').value = user.city || '';
+  document.querySelector('input[name="role"][value="' + user.role + '"]').checked = true;
+
+  $('avatar-file').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f || !/^image\//.test(f.type)) return;
+    App.resizeImage(f, 240, 0.8).then(function (url) { avatarUrl = url; $('av').innerHTML = headHTML(); }, function () { App.toast('That picture could not be read.'); });
+    e.target.value = '';
+  });
+  $('avatar-rm').addEventListener('click', function () { avatarUrl = null; $('av').innerHTML = headHTML(); });
+  $('full_name').addEventListener('input', function () { if (!avatarUrl) $('av').innerHTML = headHTML(); });
+  $('out').addEventListener('click', App.logout);
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('full_name').value.trim();
+    var role = document.querySelector('input[name="role"]:checked').value;
+    var phoneRaw = $('phone').value.trim(), waRaw = $('whatsapp_number').value.trim();
+    var phone = phoneRaw ? App.waNormalize(phoneRaw) : '', wa = waRaw ? App.waNormalize(waRaw) : '';
+    var errs = [], bad = [];
+    var need = function (ok, msg, id) { if (!ok) { errs.push(msg); bad.push(id); $(id).setAttribute('aria-invalid', 'true'); } else $(id).removeAttribute('aria-invalid'); };
+    need(name, 'Enter your full name.', 'full_name');
+    need(!phoneRaw || phone, 'Enter an Egyptian mobile number for your phone, for example 01012345678.', 'phone');
+    need(!waRaw || wa, 'Enter an Egyptian mobile number for WhatsApp, for example 01012345678.', 'whatsapp_number');
+    // A seller who still has items on sale cannot become a buyer until those are sold or removed.
+    if (role === 'buyer' && user.role === 'seller') {
+      var live = App.state.listings.filter(function (l) { return l.seller_id === user.id && l.status !== 'sold'; }).length;
+      if (live) errs.push('You still have ' + live + ' listing' + (live > 1 ? 's' : '') + ' that are not sold. Mark them as sold or delete them in My listings before switching to Buyer.');
+    }
+    if (role === 'seller') need(waRaw, 'Sellers need a WhatsApp number so buyers can reach them.', 'whatsapp_number');
+    if (errs.length) {
+      $('errs').innerHTML = '<div class="alert" role="alert"><strong>Please fix the following</strong><ul>' + errs.map(function (m) { return '<li>' + App.esc(m) + '</li>'; }).join('') + '</ul></div>';
+      if (bad[0]) $(bad[0]).focus();
+      return;
+    }
+    $('errs').innerHTML = '';
+    user.full_name = name; user.role = role; user.phone = phone || ''; user.whatsapp_number = wa || '';
+    user.city = $('city').value; user.avatar_url = avatarUrl;
+    App.save();
+    App.renderNav('profile');
+    $('name-h').textContent = name;
+    document.querySelector('.profile-head .muted').textContent = App.cap(role) + ' · Member since ' + App.monthYear(user.created_at);
+    $('phone').value = App.waShow(user.phone); $('whatsapp_number').value = App.waShow(user.whatsapp_number);
+    App.toast('Profile saved.');
+  });
+})();
+</script>
+</body>
+</html>

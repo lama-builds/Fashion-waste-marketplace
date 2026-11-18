@@ -1,0 +1,316 @@
+<title>Fashion Waste Marketplace</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="styles.css">
+
+<div id="nav"></div>
+<main class="wrap gutter page">
+
+  <section class="hero2" aria-labelledby="hero-h">
+    <div class="hero2-copy">
+      <span class="eyebrow">Egypt's textile surplus marketplace</span>
+      <h1 id="hero-h">Give textile waste a <em>second life</em></h1>
+      <p class="lede">Buy and sell leftover fabric, unsold stock and unwanted garments across Egypt. Made for designers, manufacturers and businesses that reuse materials.</p>
+      <div class="hero-actions">
+        <a class="btn btn-light" href="#browse">Browse materials</a>
+        <a class="btn btn-ghost-light" href="create.html">List your surplus</a>
+      </div>
+    </div>
+    <div class="mosaic" id="mosaic" aria-hidden="true"></div>
+  </section>
+
+    <form class="ask wide" id="ask-form" novalidate>
+      <h2><span>Ask in plain language</span><span class="hint" style="color:var(--muted)">AI search assistant</span></h2>
+      <div class="ask-row">
+        <div class="searchbar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg>
+          <input id="ask-q" type="search" autocomplete="off" placeholder="e.g. cotton under 50 EGP in Mahalla" aria-label="Describe the material you need">
+        </div>
+        <button class="btn btn-primary" type="submit" id="ask-btn">Ask</button>
+      </div>
+      <div class="examples" aria-label="Examples">
+        <button type="button" class="ex">Cotton under 50 EGP in Mahalla</button>
+        <button type="button" class="ex">Free offcuts for upcycling</button>
+        <button type="button" class="ex">At least 100 meters of cotton</button>
+        <button type="button" class="ex">Used or damaged denim</button>
+      </div>
+      <div class="ask-out" id="ask-out" aria-live="polite"></div>
+      <p class="hint">Answers come from Claude when this preview allows it, and from simple built-in rules otherwise. Each answer says which one.</p>
+    </form>
+
+  <section class="values" aria-label="Why use the marketplace">
+    <div class="value"><i><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></i><div><b>Talk on WhatsApp</b><span>Agree price and pickup directly with the seller.</span></div></div>
+    <div class="value"><i><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg></i><div><b>Priced for reuse</b><span>By the meter, kilo or piece, with free items too.</span></div></div>
+    <div class="value"><i><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg></i><div><b>Smart help</b><span>Price, fabric and upcycling ideas, clearly labelled.</span></div></div>
+    <div class="value"><i><svg viewBox="0 0 24 24"><path d="M20 4C10 4 5 9 5 15c0 2 1 4 3 5 6 1 12-3 12-16zM5 20c3-5 6-8 10-10"/></svg></i><div><b>Impact you can see</b><span>Track the textile kept out of landfill.</span></div></div>
+  </section>
+
+  <section class="stat-strip" id="impact-strip" aria-label="Marketplace impact"></section>
+
+  <section class="stack" style="gap:12px" aria-labelledby="cat-h">
+    <div class="section-head"><h2 id="cat-h">Shop by category</h2><p>Materials grouped by what they are</p></div>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="stack" style="gap:14px" aria-labelledby="coll-h">
+    <div class="section-head"><h2 id="coll-h">Shop the edit</h2><p>Curated starting points for your next project</p></div>
+    <div class="colls" id="colls"></div>
+  </section>
+
+  <section id="browse" class="stack" style="gap:14px" aria-labelledby="browse-h">
+    <div class="section-head"><h2 id="browse-h">Browse materials</h2><p>Search, filter and save what fits your project</p></div>
+    <div class="searchrow">
+      <div class="searchbar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search listings" aria-label="Search listings" autocomplete="off">
+      </div>
+      <button type="button" class="btn btn-quiet" id="ftoggle" aria-expanded="false" aria-controls="filters">Filters</button>
+    </div>
+    <div class="pills" id="pills" role="group" aria-label="Category"></div>
+
+    <div class="browse">
+      <aside class="filters" id="filters" aria-label="Filters">
+        <div class="head"><h2>Filters</h2><button type="button" class="linkbtn" id="f-clear">Clear all</button></div>
+        <div class="field"><label for="f-cat">Category</label><select id="f-cat"></select></div>
+        <div class="field"><label for="f-fabric">Fabric type</label><select id="f-fabric"></select></div>
+        <div class="field"><label for="f-city">City</label><select id="f-city"></select></div>
+        <div class="field"><label for="f-cond">Condition</label><select id="f-cond"></select></div>
+        <div class="field"><label for="f-unit">Sold by</label><select id="f-unit"></select></div>
+        <div class="field">
+          <span class="label" id="price-label">Price per unit (EGP)</span>
+          <div class="row2" role="group" aria-labelledby="price-label">
+            <input id="f-min" type="number" inputmode="decimal" min="0" placeholder="Min" aria-label="Minimum price">
+            <input id="f-max" type="number" inputmode="decimal" min="0" placeholder="Max" aria-label="Maximum price">
+          </div>
+        </div>
+        <div class="field"><label for="f-qty">Minimum quantity</label><input id="f-qty" type="number" inputmode="decimal" min="0" placeholder="e.g. 20"></div>
+        <label class="check"><input type="checkbox" id="f-free"> Free items only</label>
+      </aside>
+
+      <section aria-live="polite">
+        <div class="results-head">
+          <h2 id="count"></h2>
+          <label class="row" style="gap:8px;flex-wrap:nowrap"><span class="muted" style="font-size:13px">Sort</span>
+            <select id="f-sort" class="sort" aria-label="Sort listings">
+              <option value="new">Newest first</option><option value="plow">Price: low to high</option><option value="phigh">Price: high to low</option><option value="qty">Largest quantity</option>
+            </select>
+          </label>
+        </div>
+        <div class="grid" id="grid"></div>
+      </section>
+    </div>
+  </section>
+
+  <section class="how" aria-label="How it works">
+    <div class="panel">
+      <h2>For buyers</h2>
+      <ol>
+        <li><i>1</i><div><b>Find materials</b><span>Search or ask in plain language, then filter by fabric, quantity, price and city.</span></div></li>
+        <li><i>2</i><div><b>Check the details</b><span>Compare photos, condition, estimated value and upcycling ideas.</span></div></li>
+        <li><i>3</i><div><b>Request and agree</b><span>Send an order request, then settle price and pickup with the seller on WhatsApp.</span></div></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>For sellers</h2>
+      <ol>
+        <li><i>1</i><div><b>List your surplus</b><span>Add photos, fabric type, quantity and price. The AI tools can suggest the fabric and a fair price.</span></div></li>
+        <li><i>2</i><div><b>Get requests</b><span>Buyers contact you on WhatsApp or send order requests to your dashboard.</span></div></li>
+        <li><i>3</i><div><b>Hand over and track</b><span>Mark orders completed and see the waste you kept in use.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" aria-label="Sell your surplus">
+    <div><h2>Have leftover fabric or unsold stock?</h2><p class="muted" style="margin-top:4px">Turn it into income and keep it out of landfill. Listing takes a few minutes.</p></div>
+    <a class="btn btn-primary" href="create.html">Create a listing</a>
+    <div class="band-art" id="band-art" aria-hidden="true"></div>
+  </section>
+
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  App.renderNav('browse');
+  App.footer();
+  var $ = function (id) { return document.getElementById(id); };
+  var st = App.state;
+  // Buyers do not sell, so the "list your surplus" prompts are hidden for them.
+  var viewer = App.me();
+  if (viewer && viewer.role === 'buyer') {
+    var sellBtn = document.querySelector('.hero-actions a[href="create.html"]'); if (sellBtn) sellBtn.hidden = true;
+    var sellBand = document.querySelector('.band'); if (sellBand) sellBand.hidden = true;
+  }
+
+
+  /* ---------- editorial imagery (generated art; swap for photography when real listings exist) ---------- */
+  (function () {
+    var A = App.art;
+    var T = {
+      a: ['dress', '#EADBC8', '#B4553D'], b: ['twill', '#4C6E99', '#243A5A'], c: ['shirt', '#E3ECEA', '#2F6F6A'],
+      d: ['coat', '#E8E2D6', '#3B4A5C'], e: ['floral', '#F7EEE8', '#D99A8F'], f: ['satin', '#F3ECDD', '#D9CCAF']
+    };
+    $('mosaic').innerHTML = Object.keys(T).map(function (k) { return '<div class="t ' + k + '"><img alt="" src="' + A(T[k][0], T[k][1], T[k][2]) + '"></div>'; }).join('');
+    var C = [
+      ['denim', 'Collection', 'Denim for upcycling', A('twill', '#3E5F8A', '#1E2F4A')],
+      ['free', 'Collection', 'Free offcuts', A('floral', '#F7EEE8', '#D99A8F')],
+      ['cheap', 'Collection', 'Under EGP 50', A('satin', '#F0E6D2', '#CDBA95')]
+    ];
+    $('colls').innerHTML = C.map(function (c) { return '<button type="button" class="coll" data-coll="' + c[0] + '"><img alt="" src="' + c[3] + '"><span class="ct"><small>' + c[1] + '</small><b>' + c[2] + '</b><i>Shop now →</i></span></button>'; }).join('');
+    $('band-art').innerHTML = '<img alt="" src="' + A('shirt', '#E3ECEA', '#2F6F6A') + '"><img alt="" src="' + A('roll', '#F3E3D6', '#C9674F') + '">';
+  })();
+
+  /* ---------- impact strip (completed orders on the sample data) ---------- */
+  (function () {
+    var done = st.orders.filter(function (o) { return o.status === 'completed'; });
+    var kg = AI.sumKg(done), imp = AI.impactOf(kg), waiting = AI.availableKg();
+    $('impact-strip').innerHTML =
+      '<div class="stat"><b>' + AI.fmt(kg) + ' kg</b><span>Textile reused so far</span><small>Sample data</small></div>' +
+      '<div class="stat"><b>' + AI.fmt(waiting) + ' kg</b><span>Waiting for a second life</span><small>In available listings</small></div>' +
+      '<div class="stat"><b>' + AI.fmt(imp.co2 / 1000, 1) + ' t</b><span>CO2e avoided (estimate)</span><small>Placeholder factors</small></div>' +
+      '<div class="stat"><a href="impact.html" style="font-weight:600;text-decoration:none">See the impact dashboard →</a><span style="margin-top:6px">Methods, assumptions and breakdowns</span></div>';
+  })();
+
+  /* ---------- controls ---------- */
+  App.fillSelect($('f-cat'), st.categories, 'All categories');
+  App.fillSelect($('f-fabric'), AI.FABRICS.map(function (x) { return { id: x[0], name: x[1] }; }), 'All fabric types');
+  App.fillSelect($('f-city'), App.CITIES, 'All cities');
+  App.fillSelect($('f-cond'), App.CONDITIONS, 'Any condition', App.cap);
+  App.fillSelect($('f-unit'), App.UNITS, 'Any unit', function (u) { return 'Per ' + App.UNIT_ONE[u]; });
+  var f = AI.emptyFilters();
+
+  function activeCount() {
+    return ['cat', 'fabric', 'city', 'cond', 'unit', 'min', 'max', 'minQty'].filter(function (k) { return f[k] !== ''; }).length + (f.free ? 1 : 0);
+  }
+  function syncControls() {
+    $('q').value = f.q; $('f-cat').value = f.cat; $('f-fabric').value = f.fabric; $('f-city').value = f.city; $('f-cond').value = f.cond; $('f-unit').value = f.unit;
+    $('f-min').value = f.min; $('f-max').value = f.max; $('f-qty').value = f.minQty; $('f-free').checked = f.free; $('f-sort').value = f.sort;
+  }
+
+  function matches(l) {
+    if (l.status !== 'available') return false;
+    if (f.cat && l.category_id !== f.cat) return false;
+    if (f.fabric && l.fabric_type !== f.fabric) return false;
+    if (f.city && l.city !== f.city) return false;
+    if (f.cond && l.condition !== f.cond) return false;
+    if (f.unit && l.unit !== f.unit) return false;
+    if (f.free && !l.is_free) return false;
+    var price = l.is_free ? 0 : Number(l.price);
+    if (f.min !== '' && price < Number(f.min)) return false;
+    if (f.max !== '' && price > Number(f.max)) return false;
+    if (f.minQty !== '' && Number(l.quantity) < Number(f.minQty)) return false;
+    if (f.q) {
+      var c = App.category(l.category_id);
+      var hay = (l.title + ' ' + l.description + ' ' + (c ? c.name : '') + ' ' + l.city + ' ' + AI.fabricLabel(l.fabric_type)).toLowerCase();
+      var words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.every(function (w) { return hay.indexOf(w) !== -1; })) return false;
+    }
+    return true;
+  }
+  var SORTS = {
+    'new': function (a, b) { return new Date(b.created_at) - new Date(a.created_at); },
+    plow: function (a, b) { return (a.is_free ? 0 : a.price) - (b.is_free ? 0 : b.price); },
+    phigh: function (a, b) { return (b.is_free ? 0 : b.price) - (a.is_free ? 0 : a.price); },
+    qty: function (a, b) { return b.quantity - a.quantity; }
+  };
+
+  function renderPills() {
+    $('pills').innerHTML = '<button type="button" class="pill" data-cat="" aria-pressed="' + (f.cat === '') + '">All</button>' +
+      App.state.categories.map(function (c) { return '<button type="button" class="pill" data-cat="' + c.id + '" aria-pressed="' + (f.cat === c.id) + '">' + App.esc(c.name) + '</button>'; }).join('');
+  }
+  function renderCats() {
+    var avail = App.state.listings.filter(function (l) { return l.status === 'available'; });
+    var shown = [];
+    App.state.categories.forEach(function (c) {
+      var inCat = avail.filter(function (l) { return l.category_id === c.id; });
+      var cover = inCat[0] ? App.coverOf(inCat[0].id) : null;
+      shown.push('<button type="button" class="cat" data-cat="' + c.id + '"><span class="media">' + (cover ? '<img src="' + App.esc(cover) + '" alt="" loading="lazy">' : '') + '</span><div class="t"><strong>' + App.esc(c.name) + '</strong><span>' + inCat.length + ' available</span></div></button>');
+    });
+    $('cats').innerHTML = shown.join('');
+  }
+
+  function render() {
+    var list = App.state.listings.filter(matches).sort(SORTS[f.sort] || SORTS['new']);
+    $('count').textContent = list.length + (list.length === 1 ? ' listing' : ' listings');
+    var grid = $('grid');
+    var anyAvailable = App.state.listings.some(function (x) { return x.status === 'available'; });
+    if (!anyAvailable) {
+      grid.style.display = 'block';
+      grid.innerHTML = '<div class="empty" id="no-items"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg><strong>No items are available right now</strong><span>Sellers add leftover fabric and clothing all the time. Please check back later to see what is new.</span></div>';
+    } else if (!list.length) {
+      grid.style.display = 'block';
+      grid.innerHTML = '<div class="empty"><strong>No listings match these filters</strong><span>Try a different city or a wider price range.</span><button type="button" class="btn btn-quiet btn-sm" id="empty-clear">Clear filters</button></div>';
+      $('empty-clear').addEventListener('click', clearAll);
+    } else {
+      grid.style.display = '';
+      grid.innerHTML = list.map(App.cardHTML).join('');
+    }
+    var n = activeCount();
+    $('ftoggle').textContent = n ? 'Filters (' + n + ')' : 'Filters';
+    renderPills();
+    return list.length;
+  }
+  function clearAll() { var q = f.q; f = AI.emptyFilters(); f.q = q; syncControls(); render(); }
+
+  $('q').addEventListener('input', function (e) { f.q = e.target.value.trim(); render(); });
+  [['f-cat', 'cat'], ['f-fabric', 'fabric'], ['f-city', 'city'], ['f-cond', 'cond'], ['f-unit', 'unit'], ['f-sort', 'sort']].forEach(function (p) { $(p[0]).addEventListener('change', function (e) { f[p[1]] = e.target.value; render(); }); });
+  [['f-min', 'min'], ['f-max', 'max'], ['f-qty', 'minQty']].forEach(function (p) { $(p[0]).addEventListener('input', function (e) { f[p[1]] = e.target.value; render(); }); });
+  $('f-free').addEventListener('change', function (e) { f.free = e.target.checked; render(); });
+  $('f-clear').addEventListener('click', clearAll);
+  $('ftoggle').addEventListener('click', function () { var open = $('filters').classList.toggle('open'); this.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+  function pickCategory(id) { f.cat = id; syncControls(); render(); }
+  $('pills').addEventListener('click', function (e) { var b = e.target.closest('[data-cat]'); if (b) pickCategory(b.getAttribute('data-cat')); });
+  $('cats').addEventListener('click', function (e) { var b = e.target.closest('[data-cat]'); if (b) { pickCategory(b.getAttribute('data-cat')); $('browse').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+  App.bindSave($('grid'));
+
+  /* ---------- AI search assistant ---------- */
+  var DROPS = [['max', 'price limit'], ['min', 'minimum price'], ['minQty', 'quantity'], ['city', 'city'], ['cond', 'condition'], ['fabric', 'fabric type'], ['unit', 'unit'], ['q', 'keywords'], ['cat', 'category']];
+  function showAnswer(res, count) {
+    var out = $('ask-out');
+    var html = '<div class="row" style="gap:8px">' + AI.engineChip(res.engine) + '<strong>' + count + (count === 1 ? ' match' : ' matches') + '</strong></div>';
+    if (res.message) html += '<p>' + App.esc(res.message) + '</p>';
+    if (res.chips.length) html += '<div class="chips" aria-label="What was understood">' + res.chips.map(function (c) { return '<span class="chip">' + App.esc(c) + '</span>'; }).join('') + '</div>';
+    else html += '<p class="muted">I could not pick out any filters. Try naming a fabric, a city, a price or a quantity.</p>';
+    if (res.ignored && res.ignored.length) html += '<p class="hint">Not used: ' + res.ignored.map(App.esc).join(', ') + '</p>';
+    html += AI.engineNote(res);
+    if (count === 0) {
+      var drops = DROPS.filter(function (d) { return f[d[0]] !== '' && f[d[0]] !== false; });
+      if (drops.length) html += '<div class="chips"><span class="hint" style="align-self:center">Try without:</span>' + drops.map(function (d) { return '<button type="button" class="ex" data-drop="' + d[0] + '">' + d[1] + '</button>'; }).join('') + '</div>';
+    }
+    html += '<a class="hint" href="#browse" style="color:var(--primary);font-weight:600">View results below ↓</a>';
+    out.innerHTML = html;
+  }
+  $('ask-out').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-drop]'); if (!b) return;
+    f[b.getAttribute('data-drop')] = ''; syncControls(); var n = render();
+    showAnswer(lastRes, n);
+  });
+  var lastRes = null, busy = false;
+  async function ask(text) {
+    text = text.trim(); if (!text || busy) return;
+    busy = true; $('ask-btn').disabled = true; $('ask-btn').textContent = 'Thinking…';
+    $('ask-out').innerHTML = '<span class="muted">Thinking…</span>';
+    try {
+      var res = await AI.assistant(text);
+      lastRes = res;
+      var keepSort = f.sort; f = res.filters; f.sort = keepSort;
+      syncControls(); var n = render(); showAnswer(res, n);
+      if ($('filters') && f && activeCount()) { $('filters').classList.add('open'); $('ftoggle').setAttribute('aria-expanded', 'true'); }
+    } finally { busy = false; $('ask-btn').disabled = false; $('ask-btn').textContent = 'Ask'; }
+  }
+  $('ask-form').addEventListener('submit', function (e) { e.preventDefault(); ask($('ask-q').value); });
+  document.querySelectorAll('.ex').forEach(function (b) { if (b.hasAttribute('data-drop')) return; b.addEventListener('click', function () { $('ask-q').value = b.textContent; ask(b.textContent); }); });
+
+  $('colls').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-coll]'); if (!b) return;
+    var k = b.getAttribute('data-coll'); f = AI.emptyFilters();
+    if (k === 'denim') f.fabric = 'denim'; else if (k === 'free') f.free = true; else f.max = '50';
+    syncControls(); render();
+    if (activeCount()) { $('filters').classList.add('open'); $('ftoggle').setAttribute('aria-expanded', 'true'); }
+    $('browse').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  renderCats(); syncControls(); render();
+})();
+</script>

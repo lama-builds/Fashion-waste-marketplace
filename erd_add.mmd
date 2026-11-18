@@ -1,0 +1,58 @@
+erDiagram
+    profiles {
+        uuid id PK "same value as auth.users.id"
+        timestamptz created_at
+        text full_name
+        text role "buyer or seller"
+        text phone
+        text whatsapp_number
+        text city
+        text avatar_url
+    }
+    categories {
+        uuid id PK
+        timestamptz created_at
+        text name "fabric, new clothing, used clothing"
+    }
+    listings {
+        uuid id PK
+        timestamptz created_at
+        uuid seller_id FK
+        uuid category_id FK
+        text title
+        text description
+        int quantity
+        text unit "meters, kg or pieces"
+        numeric price "null when free"
+        boolean is_free
+        text condition "new, like new, used, damaged"
+        text city
+        text status "NOT NULL, default available, CHECK available/reserved/sold"
+    }
+    listing_photos {
+        uuid id PK
+        timestamptz created_at
+        uuid listing_id FK
+        text image_url "Supabase Storage path"
+        int position "display order"
+    }
+    conversations {
+        uuid id PK
+        timestamptz created_at
+        uuid listing_id FK
+        uuid buyer_id FK
+    }
+    messages {
+        uuid id PK
+        timestamptz created_at
+        uuid conversation_id FK
+        uuid sender_id FK
+        text body
+    }
+    profiles ||--o{ listings : "sells"
+    categories ||--o{ listings : "groups"
+    listings ||--o{ listing_photos : "has"
+    listings ||--o{ conversations : "is discussed in"
+    profiles ||--o{ conversations : "starts as buyer"
+    conversations ||--o{ messages : "contains"
+    profiles ||--o{ messages : "sends"

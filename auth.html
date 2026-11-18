@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Log in or sign up · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  App.renderNav('auth');
+  App.footer();
+  var content = document.getElementById('content');
+
+  function afterLogin(msg) {
+    App.flash(msg);
+    location.href = 'index.html';
+  }
+
+  function render() {
+    var user = App.me();
+    if (user) {
+      content.innerHTML =
+        '<div class="narrow"><div class="panel stack">' +
+          '<h1>You are logged in</h1>' +
+          '<div class="row">' + App.avatar(user) + '<div><strong>' + App.esc(user.full_name) + '</strong><div class="muted">' + App.cap(user.role) + (user.city ? ' · ' + App.esc(user.city) : '') + '</div></div></div>' +
+          '<a class="btn btn-primary" href="index.html">Browse listings</a>' +
+          '<button type="button" class="btn btn-quiet" id="out">Log out</button>' +
+        '</div></div>';
+      document.getElementById('out').addEventListener('click', App.logout);
+      return;
+    }
+    var tab = location.hash === '#signup' ? 'signup' : 'login';
+    content.innerHTML =
+      '<div class="narrow">' +
+        '<div><h1>Welcome</h1><p class="lede" style="margin-top:6px">Log in to post items or contact sellers, or create a free account.</p></div>' +
+        '<div class="seg" role="tablist" aria-label="Account">' +
+          '<button type="button" role="tab" id="t-login" aria-selected="' + (tab === 'login') + '">Log in</button>' +
+          '<button type="button" role="tab" id="t-signup" aria-selected="' + (tab === 'signup') + '">Sign up</button>' +
+        '</div>' +
+        '<div class="panel" id="pane"></div>' +
+        '<div class="panel stack"><h2>Try a demo account</h2><p class="muted" style="font-size:14px">Skip the form and explore with sample data.</p>' +
+          '<div class="row"><button type="button" class="btn btn-quiet" id="demo-seller">Demo seller (Mona)</button><button type="button" class="btn btn-quiet" id="demo-buyer">Demo buyer (Karim)</button></div></div>' +
+      '</div>';
+    document.getElementById('t-login').addEventListener('click', function () { renderPane('login'); setTabs('login'); });
+    document.getElementById('t-signup').addEventListener('click', function () { renderPane('signup'); setTabs('signup'); });
+    document.getElementById('demo-seller').addEventListener('click', function () { App.login(App.state.profiles[0].id); afterLogin('Logged in as Mona Hassan.'); });
+    document.getElementById('demo-buyer').addEventListener('click', function () { App.login(App.state.profiles[1].id); afterLogin('Logged in as Karim Adel.'); });
+    renderPane(tab);
+  }
+
+  function setTabs(tab) {
+    document.getElementById('t-login').setAttribute('aria-selected', String(tab === 'login'));
+    document.getElementById('t-signup').setAttribute('aria-selected', String(tab === 'signup'));
+  }
+
+  function showErrors(box, list) {
+    box.innerHTML = '<div class="alert" role="alert"><strong>Please fix the following</strong><ul>' + list.map(function (e) { return '<li>' + App.esc(e) + '</li>'; }).join('') + '</ul></div>';
+  }
+
+  function renderPane(tab) {
+    var pane = document.getElementById('pane');
+    if (tab === 'login') {
+      pane.innerHTML =
+        '<form id="login-form" class="stack" novalidate>' +
+          '<div id="errs"></div>' +
+          '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="email" placeholder="mona@example.com"></div>' +
+          '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password"><span class="hint">Prototype: any password works for an existing email.</span></div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Log in</button>' +
+        '</form>';
+      document.getElementById('login-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = document.getElementById('l-email').value.trim().toLowerCase();
+        var errs = [];
+        if (!email) errs.push('Enter your email.');
+        var au = email && App.state.authUsers.find(function (a) { return a.email === email; });
+        if (email && !au) errs.push('No account uses this email. Try a demo account or sign up.');
+        if (errs.length) { showErrors(document.getElementById('errs'), errs); return; }
+        App.login(au.id);
+        afterLogin('Welcome back, ' + App.me().full_name.split(' ')[0] + '.');
+      });
+    } else {
+      pane.innerHTML =
+        '<form id="signup-form" class="stack" novalidate>' +
+          '<div id="errs"></div>' +
+          '<div class="field"><label for="s-name">Full name</label><input id="s-name" type="text" autocomplete="name" placeholder="Your name or business name"></div>' +
+          '<div class="field"><label for="s-email">Email</label><input id="s-email" type="email" autocomplete="email"></div>' +
+          '<div class="field"><label for="s-pass">Password</label><input id="s-pass" type="password" autocomplete="new-password"><span class="hint">At least 6 characters.</span></div>' +
+          '<fieldset class="field"><legend class="label">I am a</legend>' +
+            '<div class="pick-row">' +
+              '<label class="pick"><input type="radio" name="role" value="buyer" checked><span>Buyer</span></label>' +
+              '<label class="pick"><input type="radio" name="role" value="seller"><span>Seller</span></label>' +
+            '</div><span class="hint">Choose one. Buyers find and request materials. Sellers list them. You can change this later in your profile.</span></fieldset>' +
+          '<div class="field"><label for="s-wa">WhatsApp number</label><input id="s-wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="01012345678 or +201012345678"><span class="hint">Buyers and sellers contact each other here. Required for sellers.</span></div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Create account</button>' +
+        '</form>';
+      document.getElementById('signup-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = document.getElementById('s-name').value.trim();
+        var email = document.getElementById('s-email').value.trim().toLowerCase();
+        var pass = document.getElementById('s-pass').value;
+        var role = document.querySelector('input[name="role"]:checked').value;
+        var waRaw = document.getElementById('s-wa').value.trim();
+        var wa = App.waNormalize(waRaw);
+        var errs = [];
+        if (!name) errs.push('Enter your full name.');
+        if (!/^\S+@\S+\.\S+$/.test(email)) errs.push('Enter a valid email address.');
+        else if (App.state.authUsers.some(function (a) { return a.email === email; })) errs.push('An account with this email already exists. Log in instead.');
+        if (pass.length < 6) errs.push('Use a password with at least 6 characters.');
+        if (waRaw && !wa) errs.push('Enter an Egyptian mobile number, for example 01012345678.');
+        if (!waRaw && role === 'seller') errs.push('Sellers need a WhatsApp number so buyers can reach them.');
+        if (errs.length) { showErrors(document.getElementById('errs'), errs); return; }
+        var id = App.uid(), now = new Date().toISOString();
+        App.state.authUsers.push({ id: id, email: email });
+        App.state.profiles.push({ id: id, created_at: now, full_name: name, role: role, phone: wa || '', whatsapp_number: wa || '', city: '', avatar_url: null });
+        App.login(id);
+        afterLogin('Account created. Welcome, ' + name.split(' ')[0] + '.');
+      });
+    }
+  }
+
+  window.addEventListener('hashchange', function () { if (!App.me()) { var t = location.hash === '#signup' ? 'signup' : 'login'; renderPane(t); setTabs(t); } });
+  render();
+})();
+</script>
+</body>
+</html>

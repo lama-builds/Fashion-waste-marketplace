@@ -1,0 +1,13 @@
+{
+  "name": "fashion-waste-marketplace-api",
+  "private": true,
+  "scripts": { "dev": "node --env-file=.env --watch api/index.js" },
+  "engines": { "node": ">=20.6" },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5"
+  }
+}

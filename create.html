@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Create listing · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  App.renderNav('create');
+  App.footer();
+  var content = document.getElementById('content');
+  if (!App.gate(content, true)) return;
+  var user = App.me();
+  var MAX_PHOTOS = 4;
+  var photos = [];
+
+  content.innerHTML =
+    '<div class="narrow">' +
+      '<div><h1>Create a listing</h1><p class="lede" style="margin-top:6px">Describe what you have left over. Buyers will contact you on WhatsApp at ' + App.esc(App.waShow(user.whatsapp_number) || 'the number in your profile') + '.</p></div>' +
+      '<form id="form" class="stack" novalidate>' +
+        '<div id="errs"></div>' +
+
+        '<div class="field"><span class="label" id="photo-label">Photos</span>' +
+          '<label class="dropzone" for="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg><strong>Add photos</strong><span>Up to ' + MAX_PHOTOS + ' pictures. The first one is the cover.</span></label>' +
+          '<input class="sr-only" id="files" type="file" accept="image/*" multiple aria-describedby="photo-hint">' +
+          '<div class="previews" id="previews"></div>' +
+          '<span class="hint" id="photo-hint">You can post without photos, but listings with pictures get more messages.</span>' +
+          '<div class="stack" style="gap:8px"><button type="button" class="btn btn-quiet btn-sm" id="detect" disabled>Suggest fabric type from first photo</button><div id="detect-out" aria-live="polite"></div></div>' +
+        '</div>' +
+
+        '<div class="field"><label for="title">Title</label><input id="title" type="text" maxlength="80" placeholder="e.g. Cotton poplin rolls, off-white"></div>' +
+        '<div class="field"><label for="description">Description</label><textarea id="description" maxlength="600" placeholder="Width, weight, sizes, minimum order, how to collect…"></textarea></div>' +
+        '<div class="row2">' +
+          '<div class="field"><label for="category">Category</label><select id="category"></select></div>' +
+          '<div class="field"><label for="fabric_type">Fabric type</label><select id="fabric_type"></select></div>' +
+        '</div>' +
+
+        '<div class="row2">' +
+          '<div class="field"><label for="quantity">Quantity</label><input id="quantity" type="number" inputmode="numeric" min="1" step="1" value="1"></div>' +
+          '<div class="field"><label for="unit">Unit</label><select id="unit"></select></div>' +
+        '</div>' +
+
+        '<fieldset class="field"><legend class="label">Price</legend>' +
+          '<div class="pick-row two">' +
+            '<label class="pick"><input type="radio" name="ptype" value="paid" checked><span>For sale</span></label>' +
+            '<label class="pick"><input type="radio" name="ptype" value="free"><span>Free</span></label>' +
+          '</div>' +
+        '</fieldset>' +
+        '<div class="field" id="price-field"><label for="price">Price per unit (EGP)</label><input id="price" type="number" inputmode="decimal" min="0" step="0.5" placeholder="e.g. 38"></div>' +
+        '<div class="stack" style="gap:8px"><button type="button" class="btn btn-quiet btn-sm" id="suggest">Suggest a price range</button><div id="suggest-out" aria-live="polite"></div></div>' +
+
+        '<div class="row2">' +
+          '<div class="field"><label for="condition">Condition</label><select id="condition"></select></div>' +
+          '<div class="field"><label for="city">City</label><select id="city"></select></div>' +
+        '</div>' +
+
+        '<div class="note">Status starts as <span class="badge b-available" style="vertical-align:middle">Available</span>. You can change it to reserved or sold in My listings.</div>' +
+
+        '<div class="row"><button class="btn btn-primary" type="submit">Publish listing</button><a class="btn btn-quiet" href="my-listings.html">Cancel</a></div>' +
+      '</form>' +
+    '</div>';
+
+  var $ = function (id) { return document.getElementById(id); };
+  App.fillSelect($('category'), App.state.categories, 'Select a category');
+  App.fillSelect($('fabric_type'), AI.FABRICS.map(function (x) { return { id: x[0], name: x[1] }; }), 'Select fabric type');
+  App.fillSelect($('unit'), App.UNITS, null, function (u) { return App.cap(u); });
+  $('unit').value = 'pieces';
+  App.fillSelect($('condition'), App.CONDITIONS, 'Select condition', App.cap);
+  App.fillSelect($('city'), App.CITIES, 'Select a city');
+  if (user.city) $('city').value = user.city;
+
+  function renderPreviews() {
+    $('detect').disabled = !photos.length;
+    $('previews').innerHTML = photos.map(function (url, i) {
+      return '<div class="pv"><img src="' + App.esc(url) + '" alt="Photo ' + (i + 1) + '">' + (i === 0 ? '<span class="cover">Cover</span>' : '') +
+        '<button type="button" data-rm="' + i + '" aria-label="Remove photo ' + (i + 1) + '">×</button></div>';
+    }).join('');
+  }
+  $('previews').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rm]');
+    if (!b) return;
+    photos.splice(Number(b.getAttribute('data-rm')), 1);
+    renderPreviews();
+  });
+  $('files').addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files).filter(function (f) { return /^image\//.test(f.type); });
+    var room = MAX_PHOTOS - photos.length;
+    if (files.length > room) App.toast('Only ' + MAX_PHOTOS + ' photos fit. Extra pictures were skipped.');
+    files.slice(0, Math.max(room, 0)).reduce(function (chain, f) {
+      return chain.then(function () {
+        return App.resizeImage(f, 720, 0.72).then(function (url) { photos.push(url); renderPreviews(); }, function () { App.toast('One picture could not be read.'); });
+      });
+    }, Promise.resolve());
+    e.target.value = '';
+  });
+
+  function clearError(id) {
+    var old = $(id + '-err');
+    if (old) old.remove();
+    $(id).removeAttribute('aria-invalid');
+    $(id).removeAttribute('aria-describedby');
+  }
+  function showError(id, msg) {
+    var s = document.createElement('span');
+    s.className = 'hint'; s.id = id + '-err'; s.style.color = 'var(--danger)'; s.textContent = msg;
+    $(id).setAttribute('aria-invalid', 'true');
+    $(id).setAttribute('aria-describedby', id + '-err');
+    $(id).insertAdjacentElement('afterend', s);
+  }
+
+
+  /* ---------- AI helpers (each result says which engine produced it) ---------- */
+  $('detect').addEventListener('click', async function () {
+    if (!photos.length) return;
+    var b = this, out = $('detect-out'); b.disabled = true; out.innerHTML = '<span class="muted">Looking at the photo…</span>';
+    try {
+      var r = await AI.recognize(photos[0]);
+      if (r.error) { out.innerHTML = '<div class="note">' + App.esc(r.error) + '</div>'; return; }
+      out.innerHTML = '<div class="disclose stack" style="gap:8px"><div class="row" style="gap:8px">' + AI.engineChip(r.engine) + '<strong>Possible fabric types</strong></div>' +
+        '<div class="chips">' + r.results.map(function (x) { return '<button type="button" class="ex" data-fab="' + App.esc(x.type) + '">' + App.esc(AI.fabricLabel(x.type)) + ' · ' + x.confidence + '%</button>'; }).join('') + '</div>' +
+        '<span class="hint">' + App.esc(r.note || '') + ' Tap one to use it. Always check by touch and burn test before listing.</span>' + AI.engineNote(r) + '</div>';
+    } finally { b.disabled = !photos.length; }
+  });
+  $('detect-out').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fab]'); if (!b) return;
+    $('fabric_type').value = b.getAttribute('data-fab'); clearError('fabric_type'); App.toast('Fabric type set to ' + AI.fabricLabel(b.getAttribute('data-fab')));
+  });
+  $('suggest').addEventListener('click', async function () {
+    var out = $('suggest-out');
+    var cat = App.category($('category').value);
+    if (!$('fabric_type').value || !$('condition').value || !(Number($('quantity').value) > 0)) { out.innerHTML = '<div class="note">Choose a fabric type, condition and quantity first.</div>'; return; }
+    var input = { qty: Number($('quantity').value), unit: $('unit').value, fabric: $('fabric_type').value, condition: $('condition').value, category: cat ? cat.name : 'Fabric', asking: $('price').value };
+    var est = AI.estimate(input);
+    out.innerHTML = '<div class="disclose stack" style="gap:8px"><div class="row" style="gap:8px">' + AI.engineChip('sim') + '<strong>Estimated EGP ' + AI.fmt(est.perUnit.low, 1) + ' to ' + AI.fmt(est.perUnit.high, 1) + ' per ' + App.UNIT_ONE[est.unit] + '</strong></div>' +
+      (est.verdict ? '<span>' + App.esc(est.verdict.text) + '</span>' : '') +
+      '<div class="row"><button type="button" class="btn btn-quiet btn-sm" id="use-price">Use EGP ' + AI.fmt(est.perUnit.mid, 1) + '</button></div>' +
+      '<span class="hint">From a sample price table, not live market prices.</span><div id="sg-op"></div></div>';
+    document.getElementById('use-price').addEventListener('click', function () {
+      document.querySelector('input[name="ptype"][value="paid"]').checked = true; syncPrice();
+      $('price').value = Math.round(est.perUnit.mid * 2) / 2; clearError('price');
+    });
+    var r = await AI.valueOpinion(input, est), sg = document.getElementById('sg-op');
+    if (sg) sg.innerHTML = r.engine === 'live' ? '<div class="row" style="gap:8px;align-items:flex-start">' + AI.engineChip('live') + '<span>' + App.esc(r.opinion) + '</span></div>' : AI.engineNote(r);
+  });
+
+  function syncPrice() {
+    var free = document.querySelector('input[name="ptype"]:checked').value === 'free';
+    $('price').disabled = free;
+    if (free) { $('price').value = ''; clearError('price'); }
+    $('price-field').style.opacity = free ? '.55' : '';
+  }
+  document.querySelectorAll('input[name="ptype"]').forEach(function (r) { r.addEventListener('change', syncPrice); });
+  syncPrice();
+
+  ['title', 'category', 'fabric_type', 'quantity', 'price', 'condition', 'city'].forEach(function (id) {
+    $(id).addEventListener('input', function () { clearError(id); });
+    $(id).addEventListener('change', function () { clearError(id); });
+  });
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = {
+      title: $('title').value.trim(), description: $('description').value.trim(), category: $('category').value,
+      quantity: Number($('quantity').value), unit: $('unit').value, free: document.querySelector('input[name="ptype"]:checked').value === 'free',
+      fabric: $('fabric_type').value, price: $('price').value, condition: $('condition').value, city: $('city').value
+    };
+    var errs = [], bad = [];
+    var need = function (cond, msg, id) { clearError(id); if (cond) return true; errs.push(msg); bad.push(id); showError(id, msg); return false; };
+    need(v.title, 'Enter a title.', 'title');
+    need(v.category, 'Choose a category.', 'category');
+    need(v.fabric, 'Choose the fabric type.', 'fabric_type');
+    if (need($('quantity').value.trim() !== '', 'Enter a quantity.', 'quantity')) need(Number.isInteger(v.quantity) && v.quantity >= 1, 'Quantity must be a whole number of 1 or more.', 'quantity');
+    if (!v.free) { if (need(v.price !== '', 'Enter a price, or choose Free.', 'price')) need(Number(v.price) > 0, 'Price must be above 0.', 'price'); } else clearError('price');
+    need(v.condition, 'Choose the condition.', 'condition');
+    need(v.city, 'Choose a city.', 'city');
+    if (errs.length) {
+      $('errs').innerHTML = '<div class="alert" role="alert"><strong>Please fix the following</strong><ul>' + errs.map(function (m) { return '<li>' + App.esc(m) + '</li>'; }).join('') + '</ul></div>';
+      $(bad[0]).focus();
+      return;
+    }
+    $('errs').innerHTML = '';
+    var st = App.state, id = App.uid(), now = new Date().toISOString();
+    st.listings.push({
+      id: id, created_at: now, seller_id: user.id, category_id: v.category, fabric_type: v.fabric, title: v.title, description: v.description,
+      quantity: v.quantity, unit: v.unit, price: v.free ? null : Number(v.price), is_free: v.free,
+      condition: v.condition, city: v.city, status: 'available'
+    });
+    photos.forEach(function (url, i) { st.photos.push({ id: App.uid(), created_at: now, listing_id: id, image_url: url, position: i }); });
+    var saved = App.save();
+    content.innerHTML =
+      '<div class="narrow"><div class="panel stack" role="status">' +
+        '<span class="badge b-available" style="justify-self:start">Available</span>' +
+        '<h1 id="done-h" tabindex="-1">Listing published</h1>' +
+        '<p class="muted">&ldquo;' + App.esc(v.title) + '&rdquo; is now live in Browse. Buyers will contact you on WhatsApp at ' + App.esc(App.waShow(user.whatsapp_number)) + '.</p>' +
+        (saved ? '' : '<div class="alert">Your browser storage is full, so this listing may be lost when you close the tab. Try fewer or smaller photos next time.</div>') +
+        '<div class="row"><a class="btn btn-primary" href="listing.html#' + id + '">View listing</a><a class="btn btn-quiet" href="create.html">Create another</a><a class="btn btn-quiet" href="my-listings.html">My listings</a></div>' +
+      '</div></div>';
+    window.scrollTo(0, 0);
+    $('done-h').focus();
+    App.toast('Listing published.');
+  });
+})();
+</script>
+</body>
+</html>

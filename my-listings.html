@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>My listings · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  App.renderNav('mine');
+  App.footer();
+  var content = document.getElementById('content');
+  if (!App.gate(content, true)) return;
+  var user = App.me();
+  var filter = 'all';
+  var confirmId = null;
+
+  function mine() {
+    return App.state.listings.filter(function (l) { return l.seller_id === user.id; })
+      .sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+  }
+
+  function row(l) {
+    var pend = App.state.orders.filter(function (o) { return o.listing_id === l.id && o.status === 'requested'; }).length;
+    var seg = App.STATUSES.map(function (s) {
+      return '<button type="button" data-status="' + s + '" data-id="' + l.id + '" aria-pressed="' + (l.status === s) + '">' + App.cap(s) + '</button>';
+    }).join('');
+    var del = confirmId === l.id
+      ? '<span class="muted" style="font-size:13px">Delete this listing?</span><span class="row"><button type="button" class="btn btn-danger btn-sm" data-del-yes="' + l.id + '">Yes, delete</button><button type="button" class="btn btn-quiet btn-sm" data-del-no>Keep</button></span>'
+      : '<a class="btn btn-quiet btn-sm" href="listing.html#' + l.id + '">View</a><button type="button" class="btn btn-quiet btn-sm" data-del="' + l.id + '">Delete</button>';
+    return '<article class="lrow" aria-label="' + App.esc(l.title) + '">' +
+      App.media(App.coverOf(l.id), l.title) +
+      '<div style="min-width:0"><h3><a href="listing.html#' + l.id + '">' + App.esc(l.title) + '</a></h3>' +
+        '<div class="price" style="font-size:16px;margin-top:2px">' + App.priceHTML(l, true) + '</div>' +
+        '<div class="meta">' + l.quantity + ' ' + l.unit + ' · ' + App.esc(l.city) + ' · ' + App.timeAgo(l.created_at) + '</div>' +
+        '<div class="row" style="gap:6px;margin-top:6px"><span class="chip">' + App.esc(AI.fabricLabel(l.fabric_type)) + '</span>' + (pend ? '<a class="chip" style="text-decoration:none;font-weight:600" href="dashboard.html">' + pend + ' request' + (pend > 1 ? 's' : '') + '</a>' : '') + '</div></div>' +
+      '<div class="controls"><div class="stat-seg" role="group" aria-label="Status for ' + App.esc(l.title) + '">' + seg + '</div>' +
+        '<div class="lrow-actions">' + del + '</div></div>' +
+    '</article>';
+  }
+
+  function render() {
+    var all = mine();
+    var count = function (s) { return all.filter(function (l) { return l.status === s; }).length; };
+    var list = filter === 'all' ? all : all.filter(function (l) { return l.status === filter; });
+    var tabs = [['all', 'All', all.length], ['available', 'Available', count('available')], ['reserved', 'Reserved', count('reserved')], ['sold', 'Sold', count('sold')]]
+      .map(function (t) { return '<button type="button" data-filter="' + t[0] + '" aria-pressed="' + (filter === t[0]) + '">' + t[1] + ' ' + t[2] + '</button>'; }).join('');
+    var body;
+    if (!all.length) {
+      content.innerHTML =
+        '<div class="stack">' +
+          '<div><h1>My listings</h1><p class="muted" style="margin-top:4px">Only available items show in Browse.</p></div>' +
+          '<div class="empty" id="no-listings">' +
+            '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg>' +
+            '<strong>You have not created any listings yet</strong>' +
+            '<span>Have leftover fabric, unsold stock or clothes you no longer wear? Post your first listing in a minute and let designers, tailors and upcyclers give it a second life.</span>' +
+            '<a class="btn btn-primary" href="create.html">Create your first listing</a>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+    if (!list.length) {
+      body = '<div class="empty"><strong>Nothing here</strong><span>No ' + filter + ' listings.</span></div>';
+    } else {
+      body = '<div class="stack" style="gap:12px">' + list.map(row).join('') + '</div>';
+    }
+    content.innerHTML =
+      '<div class="stack">' +
+        '<div class="row" style="justify-content:space-between"><div><h1>My listings</h1><p class="muted" style="margin-top:4px">Only available items show in Browse.</p></div><a class="btn btn-primary" href="create.html">New listing</a></div>' +
+        '<div class="filter-tabs" role="group" aria-label="Filter by status">' + tabs + '</div>' +
+        body +
+      '</div>';
+  }
+
+  content.addEventListener('click', function (e) {
+    var t;
+    if ((t = e.target.closest('[data-filter]'))) { filter = t.getAttribute('data-filter'); confirmId = null; render(); return; }
+    if ((t = e.target.closest('[data-status]'))) {
+      var l = App.listing(t.getAttribute('data-id'));
+      var s = t.getAttribute('data-status');
+      if (l && l.status !== s) {
+        l.status = s; App.save(); render();
+        App.toast('Marked as ' + s + '.' + (s === 'available' ? '' : ' It no longer shows in Browse.'));
+      }
+      return;
+    }
+    if ((t = e.target.closest('[data-del]'))) { confirmId = t.getAttribute('data-del'); render(); return; }
+    if (e.target.closest('[data-del-no]')) { confirmId = null; render(); return; }
+    if ((t = e.target.closest('[data-del-yes]'))) {
+      var id = t.getAttribute('data-del-yes'), st = App.state;
+      st.listings = st.listings.filter(function (x) { return x.id !== id; });
+      st.photos = st.photos.filter(function (p) { return p.listing_id !== id; });
+      st.saved = st.saved.filter(function (x) { return x.listing_id !== id; });
+      st.orders = st.orders.filter(function (o) { return o.listing_id !== id; });
+      confirmId = null; App.save(); render(); App.toast('Listing deleted.');
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

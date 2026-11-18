@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Listing · Fashion Waste Marketplace</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="styles.css">
+<style>.btn-wa{background:#12823F;color:#fff}.btn-wa:hover{background:#0E6B34}</style>
+</head>
+<body>
+<div id="nav"></div>
+<main class="wrap gutter page">
+  <a class="back" href="index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Back to browse</a>
+  <div id="content"></div>
+  <div id="foot"></div>
+</main>
+
+<script src="app.js"></script>
+<script src="ai.js"></script>
+<script>
+(function () {
+  App.renderNav('browse');
+  App.footer();
+  var content = document.getElementById('content');
+  var lastFocus = null;
+
+  function render() {
+    var id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    var l = App.listing(id);
+    if (!l) {
+      content.innerHTML = '<div class="empty"><strong>This listing could not be found</strong><span>It may have been removed by the seller.</span><a class="btn btn-primary btn-sm" href="index.html">Browse listings</a></div>';
+      return;
+    }
+    document.title = l.title + ' · Fashion Waste Marketplace';
+    var seller = App.profile(l.seller_id);
+    var cat = App.category(l.category_id);
+    var photos = App.photosOf(l.id);
+    var user = App.me();
+    var own = user && user.id === l.seller_id;
+
+    var thumbs = photos.length > 1
+      ? '<div class="thumbs" role="group" aria-label="Photos">' + photos.map(function (p, i) {
+          return '<button type="button" class="thumb" data-i="' + i + '" aria-label="Photo ' + (i + 1) + '" aria-current="' + (i === 0) + '"><img src="' + App.esc(p.image_url) + '" alt=""></button>';
+        }).join('') + '</div>'
+      : '';
+
+    var cta;
+    if (own) {
+      cta = '<div class="note">This is your listing. Change its status in <a href="my-listings.html">My listings</a>.</div>';
+    } else if (l.status === 'sold') {
+      cta = '<div class="note">This item has been sold, so the seller can no longer be contacted about it.</div>';
+    } else {
+      cta = buyBox(l, user) + (l.status === 'reserved' ? '<div class="note">Reserved for another buyer. You can still message the seller in case it becomes available again.</div>' : '') +
+        '<button type="button" class="btn btn-wa btn-block" id="wa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-13.4 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2z"/></svg>Contact on WhatsApp</button>';
+    }
+
+    content.innerHTML =
+      '<div class="detail">' +
+        '<div class="gallery"><div class="media" id="hero">' + (photos[0] ? '<img src="' + App.esc(photos[0].image_url) + '" alt="' + App.esc(l.title) + '">' : '<div class="noimg" role="img" aria-label="No photo">No photo</div>') + '</div>' + thumbs + '</div>' +
+        '<div class="info">' +
+          '<div class="row">' + App.badge(l.status) + '<span class="chip">' + App.esc(cat ? cat.name : '') + '</span></div>' +
+          '<h1>' + App.esc(l.title) + '</h1>' +
+          '<div class="bigprice">' + App.priceHTML(l, false) + (l.is_free ? '' : '<small>per ' + App.UNIT_ONE[l.unit] + '</small>') + '</div>' +
+          '<dl class="facts">' +
+            '<div><dt>Fabric type</dt><dd>' + App.esc(AI.fabricLabel(l.fabric_type)) + '</dd></div>' +
+            '<div><dt>Quantity</dt><dd>' + l.quantity + ' ' + l.unit + '</dd></div>' +
+            '<div><dt>Condition</dt><dd>' + App.cap(l.condition) + '</dd></div>' +
+            '<div><dt>City</dt><dd>' + App.esc(l.city) + '</dd></div>' +
+            '<div><dt>Listed</dt><dd>' + App.timeAgo(l.created_at) + '</dd></div>' +
+            (l.is_free ? '' : '<div><dt>Lot value</dt><dd>EGP ' + AI.fmt(l.price * l.quantity) + '</dd></div>') +
+          '</dl>' +
+          (l.description ? '<p>' + App.esc(l.description) + '</p>' : '') +
+          (seller ? '<div class="seller">' + App.avatar(seller) + '<div class="grow"><strong>' + App.esc(seller.full_name) + '</strong><div class="muted" style="font-size:13px">' + App.cap(seller.role) + ' · ' + App.esc(seller.city || '') + ' · Member since ' + App.monthYear(seller.created_at) + '</div></div></div>' : '') +
+          '<div class="cta-wrap">' + cta + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="stack" style="gap:16px;margin-top:28px" id="more">' +
+        '<div class="section-head"><h2>Insights for this lot</h2><p>Estimates to help you decide. Not a quote or a guarantee.</p></div>' +
+        '<div class="cols two" id="ai-cards"></div>' +
+        '<div id="similar"></div>' +
+      '</div>';
+
+    var hero = document.getElementById('hero');
+    wireBuy(l, user);
+    insights(l);
+    similar(l);
+    content.querySelectorAll('.thumb').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = photos[Number(b.getAttribute('data-i'))];
+        hero.innerHTML = '<img src="' + App.esc(p.image_url) + '" alt="' + App.esc(l.title) + '">';
+        content.querySelectorAll('.thumb').forEach(function (x) { x.setAttribute('aria-current', x === b ? 'true' : 'false'); });
+      });
+    });
+    var wa = document.getElementById('wa');
+    if (wa) wa.addEventListener('click', function () { openWhatsApp(l, seller); });
+  }
+
+
+  function buyBox(l, user) {
+    var save = '<button type="button" class="btn btn-quiet btn-block" id="save-btn" aria-pressed="false"></button>';
+    if (user && user.role === 'seller') {
+      return '<div class="note">You are logged in as a seller. Order requests and saving items are for buyer accounts. You can still contact this seller on WhatsApp.</div>';
+    }
+    if (!user) {
+      return '<div class="buybox"><strong>Interested in this lot?</strong><p class="muted" style="font-size:14px">Log in to send an order request to the seller or save this lot.</p><a class="btn btn-primary btn-block" href="auth.html">Log in or sign up</a></div>';
+    }
+    var maxQ = l.quantity;
+    return '<form class="buybox" id="order-form" novalidate>' +
+      '<strong>Request this material</strong>' +
+      '<div class="qty-row"><div class="field"><label for="o-qty">Quantity (' + App.esc(l.unit) + ')</label><input id="o-qty" type="number" inputmode="decimal" min="1" max="' + maxQ + '" step="any" value="' + maxQ + '"><div class="error" id="o-err" hidden></div></div>' +
+      '<div class="total"><span id="o-total">' + (l.is_free ? 'Free' : 'EGP ' + AI.fmt(l.price * maxQ)) + '</span><small>Estimated total</small></div></div>' +
+      '<div class="field"><label for="o-note">Note to seller (optional)</label><textarea id="o-note" rows="2" placeholder="Pickup day, intended use, questions"></textarea></div>' +
+      '<button type="submit" class="btn btn-primary btn-block">Send order request</button>' +
+      '<p class="hint">No payment is taken. The seller accepts or declines, then you agree price and pickup on WhatsApp.</p>' +
+      save + '</form>';
+  }
+  function wireBuy(l, user) {
+    var sb = document.getElementById('save-btn');
+    function paintSave() {
+      if (!sb) return;
+      var on = App.isSaved(user.id, l.id);
+      sb.setAttribute('aria-pressed', on ? 'true' : 'false');
+      sb.textContent = on ? 'Saved. Tap to remove' : 'Save for later';
+    }
+    if (sb) { paintSave(); sb.addEventListener('click', function () { var on = App.toggleSave(l.id); paintSave(); App.toast(on ? 'Saved to your dashboard' : 'Removed from saved'); }); }
+    var form = document.getElementById('order-form');
+    if (!form) return;
+    var qty = document.getElementById('o-qty'), err = document.getElementById('o-err');
+    qty.addEventListener('input', function () {
+      var q = Number(qty.value) || 0;
+      document.getElementById('o-total').textContent = l.is_free ? 'Free' : 'EGP ' + AI.fmt(l.price * q);
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var q = Number(qty.value);
+      err.hidden = true; qty.removeAttribute('aria-invalid');
+      if (!(q > 0) || q > l.quantity) {
+        err.textContent = 'Enter a quantity between 1 and ' + l.quantity + '.'; err.hidden = false; qty.setAttribute('aria-invalid', 'true'); qty.focus(); return;
+      }
+      App.createOrder(l.id, q, document.getElementById('o-note').value.trim());
+      form.innerHTML = '<div class="stack" style="gap:8px"><strong>Order request sent</strong><p class="muted" style="font-size:14px">The seller can now accept or decline it. You can follow it in your dashboard, and message the seller on WhatsApp to agree pickup.</p><a class="btn btn-primary btn-block" href="dashboard.html">View my order requests</a></div>';
+      form.setAttribute('role', 'status');
+    });
+  }
+
+  function insights(l) {
+    var box = document.getElementById('ai-cards');
+    var cat = AI.catName(l.category_id);
+    var input = { qty: l.quantity, unit: l.unit, fabric: l.fabric_type, condition: l.condition, category: cat, asking: l.is_free ? 0 : l.price };
+    var est = AI.estimate(input);
+    var kg = AI.listingKg(l), imp = AI.impactOf(kg);
+    box.innerHTML =
+      '<section class="ai-card" id="val-card"><header><h3>Estimated market value</h3>' + AI.engineChip('sim') + '</header>' +
+        '<div class="range">EGP ' + AI.fmt(est.perUnit.low, 1) + ' to ' + AI.fmt(est.perUnit.high, 1) + ' <small>per ' + App.UNIT_ONE[l.unit] + '</small></div>' +
+        '<div class="muted" style="font-size:14px">Whole lot: EGP ' + AI.fmt(est.total.low) + ' to ' + AI.fmt(est.total.high) + '. ' + (l.is_free ? 'This lot is offered for free.' : est.verdict ? est.verdict.text : '') + '</div>' +
+        '<ul class="muted" style="margin:0;padding-left:18px;font-size:13px">' + est.factors.map(function (f) { return '<li>' + App.esc(f) + '</li>'; }).join('') + '</ul>' +
+        '<div id="val-op"></div>' +
+        '<p class="hint">Calculated from a sample price table, not live market data.</p></section>' +
+      '<section class="ai-card" id="up-card"><header><h3>Upcycling ideas</h3><span id="up-chip"></span></header><div id="up-body" class="muted"></div></section>' +
+      '<section class="ai-card"><header><h3>Reuse impact if this lot is used</h3><span class="engine sim">Estimate</span></header>' +
+        '<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="stat"><b>' + AI.fmt(kg) + ' kg</b><span>Textile kept in use</span></div><div class="stat"><b>' + AI.fmt(imp.co2) + ' kg</b><span>CO2e avoided</span></div><div class="stat"><b>' + AI.fmt(imp.water / 1000) + ' m³</b><span>Water saved</span></div></div>' +
+        '<p class="hint">Uses placeholder factors listed on the <a href="impact.html#assumptions">impact page</a>. Verify before quoting them.</p></section>';
+
+    var simUp = AI.upcycleSim({ qty: l.quantity, unit: l.unit, fabric: l.fabric_type, category: cat, condition: l.condition });
+    function showUp(r) {
+      document.getElementById('up-chip').innerHTML = AI.engineChip(r.engine);
+      var body = document.getElementById('up-body');
+      body.className = 'stack';
+      body.innerHTML = '<ul class="ideas">' + r.items.map(function (x) {
+        return '<li><b>' + App.esc(x.name) + '</b><span>' + App.esc(x.difficulty) + (x.market ? ' · Sells to: ' + App.esc(x.market) : '') + (x.count ? ' · About ' + AI.fmt(x.count) + ' pieces from this lot' : '') + '</span>' + (x.tip ? '<span>' + App.esc(x.tip) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>' + (r.reason ? AI.engineNote(r) : '') +
+      (r.engine === 'live' ? '' : '<button type="button" class="btn btn-quiet btn-sm" id="up-live">Ask Claude for more ideas</button>');
+      var b = document.getElementById('up-live');
+      if (b) b.addEventListener('click', async function () {
+        b.disabled = true; b.textContent = 'Asking Claude…';
+        showUp(await AI.upcycle({ qty: l.quantity, unit: l.unit, fabric: l.fabric_type, category: cat, condition: l.condition }));
+      });
+    }
+    showUp({ engine: 'sim', items: simUp });
+
+    var vo = document.getElementById('val-op');
+    vo.innerHTML = '<button type="button" class="btn btn-quiet btn-sm" id="val-live">Ask Claude for a second opinion</button>';
+    document.getElementById('val-live').addEventListener('click', async function () {
+      this.disabled = true; this.textContent = 'Asking Claude…';
+      var r = await AI.valueOpinion(input, est);
+      if (r.engine === 'live') {
+        vo.innerHTML = '<div class="disclose"><div class="row" style="gap:8px">' + AI.engineChip('live') + '<strong>Second opinion</strong></div><p style="margin:6px 0 0">' + App.esc(r.opinion) + '</p>' +
+          (r.checks.length ? '<ul style="margin:6px 0 0;padding-left:18px">' + r.checks.map(function (c) { return '<li>' + App.esc(c) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+      } else { vo.innerHTML = AI.engineNote(r); }
+    });
+  }
+
+  function similar(l) {
+    var list = App.state.listings.filter(function (x) { return x.id !== l.id && x.status === 'available' && (x.fabric_type === l.fabric_type || x.category_id === l.category_id); })
+      .sort(function (a, b) { return (b.fabric_type === l.fabric_type) - (a.fabric_type === l.fabric_type); }).slice(0, 4);
+    var el = document.getElementById('similar');
+    if (!list.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="section-head" style="margin-bottom:12px"><h2>Similar materials</h2></div><div class="grid" id="sim-grid">' + list.map(App.cardHTML).join('') + '</div>';
+    App.bindSave(document.getElementById('sim-grid'));
+  }
+
+  function openWhatsApp(l, seller) {
+    var firstName = seller.full_name.split(' ')[0];
+    var msg = 'Hi ' + firstName + ', I saw "' + l.title + '" (' + l.quantity + ' ' + l.unit + ') on Fashion Waste Marketplace. Is it still available?';
+    var number = seller.whatsapp_number || '';
+    lastFocus = document.activeElement;
+    var ov = document.createElement('div');
+    ov.className = 'overlay';
+    ov.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="wa-title">' +
+        '<h2 id="wa-title">Message on WhatsApp</h2>' +
+        '<p class="muted">In the real app this button opens WhatsApp with the message below already written. This prototype does not send anything, and the numbers are made up.</p>' +
+        '<div><div class="hint">To</div><strong>' + App.esc(seller.full_name) + ' · ' + App.esc(App.waShow(number)) + '</strong></div>' +
+        '<div><div class="hint">Message</div><div class="msgbox" id="wa-msg">' + App.esc(msg) + '</div></div>' +
+        '<div class="row"><button type="button" class="btn btn-primary" id="wa-copy">Copy message</button><button type="button" class="btn btn-quiet" id="wa-close">Close</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    var close = function () { ov.remove(); document.removeEventListener('keydown', onKey); if (lastFocus) lastFocus.focus(); };
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    document.getElementById('wa-close').addEventListener('click', close);
+    document.getElementById('wa-copy').addEventListener('click', function () {
+      var done = function () { App.toast('Message copied'); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(document.getElementById('wa-msg'));
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        App.toast('Message selected. Copy it manually.');
+      };
+      try { navigator.clipboard.writeText(msg).then(done, fallback); } catch (e) { fallback(); }
+    });
+    document.getElementById('wa-close').focus();
+  }
+
+  window.addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>
