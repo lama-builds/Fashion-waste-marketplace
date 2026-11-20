@@ -27,7 +27,7 @@ The backend is an API only. Its home page (`/`) shows a 404; use `/api/health` t
 In your Vercel project open **Settings**:
 - **General → Root Directory:** `backend`
 - **General → Framework Preset:** Other. Leave Build Command, Output Directory and Install Command empty.
-- **General → Node.js Version:** 20.x
+- **General → Node.js Version:** 24.x
 - **Environment Variables** (all environments):
   - `DATABASE_URL`: the pooler string from step 1
   - `JWT_SECRET`: at least 32 random characters. Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
