@@ -19,7 +19,8 @@ The backend is an API only. Its home page (`/`) shows a 404; use `/api/health` t
    1. `01_schema_original.sql`
    2. `02_auth_migration.sql`
    3. `04_two_roles_migration.sql`
-   4. `03_stage2_ai_dashboards.sql` (optional: the API does not use these tables yet)
+   4. `05_seed_categories.sql` (adds the four starting categories; safe to run again)
+   5. `03_stage2_ai_dashboards.sql` (optional: the API does not use these tables yet)
 3. Click **Connect**, copy the **Transaction pooler** string (port **6543**) and put your password in it. Do not add `?sslmode=...`. URL-encode special characters in the password.
 
 ### 2. Vercel settings
