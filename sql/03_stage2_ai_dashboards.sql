@@ -47,7 +47,15 @@ create table buyer_preferences (
   conditions  text[] not null default '{new,like new}'
 );
 
--- Row level security (enable and write policies before going live):
--- orders: buyer and seller of the row can read; buyer inserts; seller updates status.
--- saved_listings, buyer_preferences: owner only.
+-- 5. Row level security: close the public Supabase API on the new tables, the same way
+--    02_auth_migration.sql does for the original tables. The backend connects directly as the
+--    database owner and is not affected. With RLS on, no policies and no grants, the public
+--    "anon" and "authenticated" keys can neither read nor write these tables.
+--    All access rules (buyer and seller of an order, owner of a saved item) are enforced in the backend.
+alter table orders            enable row level security;
+alter table saved_listings    enable row level security;
+alter table buyer_preferences enable row level security;
+revoke all on orders, saved_listings, buyer_preferences from anon, authenticated;
+
 -- Reminder: this goes beyond the 6-table limit of the original ERD brief; confirm with your supervisor.
+-- Note: the backend API does not use these tables or fabric_type yet.

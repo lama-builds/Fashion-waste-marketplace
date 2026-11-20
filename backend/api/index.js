@@ -1,6 +1,6 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const { HttpError } = require('./utils');
+const { HttpError } = require('../server/utils');
 
 const app = express();
 app.disable('x-powered-by');
@@ -13,10 +13,10 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/categories', require('./routes/categories'));
-app.use('/api/listings', require('./routes/listings'));
-app.use('/api/profiles', require('./routes/profiles'));
+app.use('/api/auth', require('../server/routes/auth'));
+app.use('/api/categories', require('../server/routes/categories'));
+app.use('/api/listings', require('../server/routes/listings'));
+app.use('/api/profiles', require('../server/routes/profiles'));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route not found.' }));
 

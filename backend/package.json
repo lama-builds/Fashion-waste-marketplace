@@ -2,7 +2,7 @@
   "name": "fashion-waste-marketplace-api",
   "private": true,
   "scripts": { "dev": "node --env-file=.env --watch api/index.js" },
-  "engines": { "node": ">=20.6" },
+  "engines": { "node": "20.x" },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
