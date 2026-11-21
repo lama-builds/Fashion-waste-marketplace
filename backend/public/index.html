@@ -131,7 +131,7 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('browse');
   App.footer();
   var $ = function (id) { return document.getElementById(id); };
@@ -161,12 +161,12 @@
     $('band-art').innerHTML = '<img alt="" src="' + A('shirt', '#E3ECEA', '#2F6F6A') + '"><img alt="" src="' + A('roll', '#F3E3D6', '#C9674F') + '">';
   })();
 
-  /* ---------- impact strip (completed orders on the sample data) ---------- */
+  /* ---------- impact strip (completed orders across the marketplace) ---------- */
   (function () {
-    var done = st.orders.filter(function (o) { return o.status === 'completed'; });
+    var done = st.impact;
     var kg = AI.sumKg(done), imp = AI.impactOf(kg), waiting = AI.availableKg();
     $('impact-strip').innerHTML =
-      '<div class="stat"><b>' + AI.fmt(kg) + ' kg</b><span>Textile reused so far</span><small>Sample data</small></div>' +
+      '<div class="stat"><b>' + AI.fmt(kg) + ' kg</b><span>Textile reused so far</span><small>Completed orders</small></div>' +
       '<div class="stat"><b>' + AI.fmt(waiting) + ' kg</b><span>Waiting for a second life</span><small>In available listings</small></div>' +
       '<div class="stat"><b>' + AI.fmt(imp.co2 / 1000, 1) + ' t</b><span>CO2e avoided (estimate)</span><small>Placeholder factors</small></div>' +
       '<div class="stat"><a href="impact.html" style="font-weight:600;text-decoration:none">See the impact dashboard →</a><span style="margin-top:6px">Methods, assumptions and breakdowns</span></div>';
@@ -312,5 +312,5 @@
   });
 
   renderCats(); syncControls(); render();
-})();
+});
 </script>

@@ -2,16 +2,18 @@ const express = require('express');
 const { pool, query } = require('../db');
 const { HttpError, asyncH, isUuid, str, num, oneOf, uuid, done } = require('../utils');
 const { requireAuth, optionalAuth, requireRole } = require('../middleware/requireAuth');
+const { JPEG_URI, MAX_PHOTO_CHARS } = require('../media');
 
 const router = express.Router();
 const UNITS = ['meters', 'kg', 'pieces'];
 const CONDITIONS = ['new', 'like new', 'used', 'damaged'];
 const STATUSES = ['available', 'reserved', 'sold'];
+const FABRICS = ['cotton', 'polyester', 'denim', 'linen', 'viscose', 'wool', 'satin', 'jersey', 'leather', 'terry', 'other'];
 
 // Shared SQL pieces
-const COVER = `(select ph.image_url from listing_photos ph where ph.listing_id = l.id order by ph.position, ph.created_at limit 1) as cover_image`;
+const COVER = `(select case when ph.image_url like 'data:%' then '/api/photos/' || ph.id else ph.image_url end from listing_photos ph where ph.listing_id = l.id order by ph.position, ph.created_at limit 1) as cover_image`;
 const CARD_COLUMNS = `l.id, l.created_at, l.title, l.description, l.quantity, l.unit, l.price, l.is_free,
-  l.condition, l.city, l.status, l.category_id, c.name as category_name, ${COVER}`;
+  l.condition, l.city, l.status, l.category_id, l.fabric_type, c.name as category_name, ${COVER}`;
 
 // numeric comes back from pg as text ("30.00"); the front end wants a number
 const shape = (row) => ({ ...row, price: row.price === null ? null : Number(row.price) });
@@ -23,6 +25,7 @@ function validateListing(b) {
     title: str(errors, 'title', b.title, { required: true, min: 2, max: 80 }),
     description: str(errors, 'description', b.description, { max: 600 }) ?? null,
     category_id: uuid(errors, 'category_id', b.category_id, { required: true }),
+    fabric_type: oneOf(errors, 'fabric_type', b.fabric_type === undefined ? 'other' : b.fabric_type, FABRICS),
     quantity: num(errors, 'quantity', b.quantity, { integer: true, min: 1, max: 1000000, required: true }),
     unit: oneOf(errors, 'unit', b.unit === undefined ? 'pieces' : b.unit, UNITS),
     condition: oneOf(errors, 'condition', b.condition, CONDITIONS, { required: true }),
@@ -115,7 +118,7 @@ router.get('/:id', optionalAuth, asyncH(async (req, res) => {
   if (!isUuid(req.params.id)) throw new HttpError(400, 'The listing id is not valid.');
   const { rows } = await query(
     `select l.id, l.created_at, l.title, l.description, l.quantity, l.unit, l.price, l.is_free,
-            l.condition, l.city, l.status, l.category_id, l.seller_id, c.name as category_name,
+            l.condition, l.city, l.status, l.category_id, l.fabric_type, l.seller_id, c.name as category_name,
             p.full_name as seller_name, p.city as seller_city, p.whatsapp_number as seller_whatsapp,
             u.created_at as seller_since
        from listings l
@@ -127,7 +130,7 @@ router.get('/:id', optionalAuth, asyncH(async (req, res) => {
   );
   if (!rows[0]) throw new HttpError(404, 'Listing not found. It may have been removed.');
   const photos = await query(
-    'select id, image_url, position from listing_photos where listing_id = $1 order by position, created_at',
+    "select id, case when image_url like 'data:%' then '/api/photos/' || id else image_url end as image_url, position from listing_photos where listing_id = $1 order by position, created_at",
     [req.params.id]
   );
   const { seller_id, seller_whatsapp, ...listing } = shape(rows[0]);
@@ -148,10 +151,13 @@ router.post('/', requireAuth, requireRole('seller'), asyncH(async (req, res) => 
   const errors = [];
   let photos = [];
   if (b.photos !== undefined) {
-    if (!Array.isArray(b.photos) || b.photos.length > 4) errors.push('photos must be a list of at most 4 image paths.');
+    if (!Array.isArray(b.photos) || b.photos.length > 4) errors.push('photos must be a list of at most 4 pictures.');
     else {
-      photos = b.photos.filter((p) => typeof p === 'string' && /^[\w\-./]{1,500}$/.test(p) && !p.includes('..'));
-      if (photos.length !== b.photos.length) errors.push('Each photo must be a storage path like "listings/abc.jpg".');
+      // each photo is either a small JPEG data URI sent by the page, or a storage path like "listings/abc.jpg"
+      const okPhoto = (p) => typeof p === 'string' && (
+        (p.length <= MAX_PHOTO_CHARS && JPEG_URI.test(p)) || (/^[\w\-./]{1,500}$/.test(p) && !p.includes('..')));
+      photos = b.photos.filter(okPhoto);
+      if (photos.length !== b.photos.length) errors.push('Each photo must be a JPEG picture of at most about 300 KB.');
     }
   }
   done(errors);
@@ -161,14 +167,18 @@ router.post('/', requireAuth, requireRole('seller'), asyncH(async (req, res) => 
   try {
     await client.query('begin');
     const r = await client.query(
-      `insert into listings (seller_id, category_id, title, description, quantity, unit, price, is_free, condition, city)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       returning id, created_at, title, description, quantity, unit, price, is_free, condition, city, status, category_id`,
-      [req.user.id, v.category_id, v.title, v.description, v.quantity, v.unit, v.price, v.is_free, v.condition, v.city]
+      `insert into listings (seller_id, category_id, fabric_type, title, description, quantity, unit, price, is_free, condition, city)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       returning id, created_at, seller_id, title, description, quantity, unit, price, is_free, condition, city, status, category_id, fabric_type`,
+      [req.user.id, v.category_id, v.fabric_type || 'other', v.title, v.description, v.quantity, v.unit, v.price, v.is_free, v.condition, v.city]
     );
     listing = r.rows[0];
+    listing.photos = [];
     for (let i = 0; i < photos.length; i++) {
-      await client.query('insert into listing_photos (listing_id, image_url, position) values ($1, $2, $3)', [listing.id, photos[i], i]);
+      const ph = await client.query(
+        'insert into listing_photos (listing_id, image_url, position) values ($1, $2, $3) returning id, created_at, listing_id, position, image_url', [listing.id, photos[i], i]);
+      const row = ph.rows[0];
+      listing.photos.push({ ...row, image_url: row.image_url.startsWith('data:') ? '/api/photos/' + row.id : row.image_url });
     }
     await client.query('commit');
   } catch (err) {
@@ -185,13 +195,13 @@ router.post('/', requireAuth, requireRole('seller'), asyncH(async (req, res) => 
 router.patch('/:id', requireAuth, asyncH(async (req, res) => {
   if (!isUuid(req.params.id)) throw new HttpError(400, 'The listing id is not valid.');
   const b = req.body || {};
-  const FIELDS = ['title', 'description', 'category_id', 'quantity', 'unit', 'condition', 'city', 'price', 'is_free', 'status'];
+  const FIELDS = ['title', 'description', 'category_id', 'fabric_type', 'quantity', 'unit', 'condition', 'city', 'price', 'is_free', 'status'];
   const sent = FIELDS.filter((f) => b[f] !== undefined);
   if (!sent.length) throw new HttpError(400, `Nothing to update. Send at least one of: ${FIELDS.join(', ')}.`);
 
   // The "and seller_id = $2" makes sure you can only touch your own listing.
   const cur = await query(
-    `select title, description, category_id, quantity, unit, condition, city, price, is_free, status
+    `select title, description, category_id, fabric_type, quantity, unit, condition, city, price, is_free, status
        from listings where id = $1 and seller_id = $2`,
     [req.params.id, req.user.id]
   );
@@ -208,10 +218,10 @@ router.patch('/:id', requireAuth, asyncH(async (req, res) => {
   const { rows } = await query(
     `update listings
         set title = $3, description = $4, category_id = $5, quantity = $6, unit = $7,
-            condition = $8, city = $9, price = $10, is_free = $11, status = $12
+            condition = $8, city = $9, price = $10, is_free = $11, status = $12, fabric_type = $13
       where id = $1 and seller_id = $2
-      returning id, created_at, title, description, quantity, unit, price, is_free, condition, city, status, category_id`,
-    [req.params.id, req.user.id, v.title, v.description, v.category_id, v.quantity, v.unit, v.condition, v.city, v.price, v.is_free, status]
+      returning id, created_at, seller_id, title, description, quantity, unit, price, is_free, condition, city, status, category_id, fabric_type`,
+    [req.params.id, req.user.id, v.title, v.description, v.category_id, v.quantity, v.unit, v.condition, v.city, v.price, v.is_free, status, v.fabric_type || 'other']
   );
   res.json(shape(rows[0]));
 }));

@@ -18,7 +18,7 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('create');
   App.footer();
   var content = document.getElementById('content');
@@ -192,27 +192,33 @@
       return;
     }
     $('errs').innerHTML = '';
-    var st = App.state, id = App.uid(), now = new Date().toISOString();
-    st.listings.push({
-      id: id, created_at: now, seller_id: user.id, category_id: v.category, fabric_type: v.fabric, title: v.title, description: v.description,
+    var btn = e.target.querySelector('button[type="submit"]'), label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+    App.createListing({
+      title: v.title, description: v.description, category_id: v.category, fabric_type: v.fabric,
       quantity: v.quantity, unit: v.unit, price: v.free ? null : Number(v.price), is_free: v.free,
-      condition: v.condition, city: v.city, status: 'available'
+      condition: v.condition, city: v.city, photos: photos
+    }).then(function (created) { published(created, v); }, function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      $('errs').innerHTML = '<div class="alert" role="alert"><strong>The listing was not published</strong><ul><li>' + App.esc(err.message) + '</li></ul></div>';
+      $('errs').scrollIntoView({ block: 'center' });
     });
-    photos.forEach(function (url, i) { st.photos.push({ id: App.uid(), created_at: now, listing_id: id, image_url: url, position: i }); });
-    var saved = App.save();
+  });
+
+  function published(created, v) {
+    var id = created.id;
     content.innerHTML =
       '<div class="narrow"><div class="panel stack" role="status">' +
         '<span class="badge b-available" style="justify-self:start">Available</span>' +
         '<h1 id="done-h" tabindex="-1">Listing published</h1>' +
-        '<p class="muted">&ldquo;' + App.esc(v.title) + '&rdquo; is now live in Browse. Buyers will contact you on WhatsApp at ' + App.esc(App.waShow(user.whatsapp_number)) + '.</p>' +
-        (saved ? '' : '<div class="alert">Your browser storage is full, so this listing may be lost when you close the tab. Try fewer or smaller photos next time.</div>') +
+        '<p class="muted">&ldquo;' + App.esc(v.title) + '&rdquo; is now live in Browse. Buyers will contact you on WhatsApp at ' + App.esc(App.waShow(App.me().whatsapp_number)) + '.</p>' +
         '<div class="row"><a class="btn btn-primary" href="listing.html#' + id + '">View listing</a><a class="btn btn-quiet" href="create.html">Create another</a><a class="btn btn-quiet" href="my-listings.html">My listings</a></div>' +
       '</div></div>';
     window.scrollTo(0, 0);
     $('done-h').focus();
     App.toast('Listing published.');
-  });
-})();
+  }
+});
 </script>
 </body>
 </html>

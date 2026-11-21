@@ -20,7 +20,7 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('browse');
   App.footer();
   var content = document.getElementById('content');
@@ -109,7 +109,7 @@
     var maxQ = l.quantity;
     return '<form class="buybox" id="order-form" novalidate>' +
       '<strong>Request this material</strong>' +
-      '<div class="qty-row"><div class="field"><label for="o-qty">Quantity (' + App.esc(l.unit) + ')</label><input id="o-qty" type="number" inputmode="decimal" min="1" max="' + maxQ + '" step="any" value="' + maxQ + '"><div class="error" id="o-err" hidden></div></div>' +
+      '<div class="qty-row"><div class="field"><label for="o-qty">Quantity (' + App.esc(l.unit) + ')</label><input id="o-qty" type="number" inputmode="decimal" min="1" max="' + maxQ + '" step="1" value="' + maxQ + '"><div class="error" id="o-err" hidden></div></div>' +
       '<div class="total"><span id="o-total">' + (l.is_free ? 'Free' : 'EGP ' + AI.fmt(l.price * maxQ)) + '</span><small>Estimated total</small></div></div>' +
       '<div class="field"><label for="o-note">Note to seller (optional)</label><textarea id="o-note" rows="2" placeholder="Pickup day, intended use, questions"></textarea></div>' +
       '<button type="submit" class="btn btn-primary btn-block">Send order request</button>' +
@@ -136,12 +136,18 @@
       e.preventDefault();
       var q = Number(qty.value);
       err.hidden = true; qty.removeAttribute('aria-invalid');
-      if (!(q > 0) || q > l.quantity) {
+      if (!(q >= 1) || !Number.isInteger(q) || q > l.quantity) {
         err.textContent = 'Enter a quantity between 1 and ' + l.quantity + '.'; err.hidden = false; qty.setAttribute('aria-invalid', 'true'); qty.focus(); return;
       }
-      App.createOrder(l.id, q, document.getElementById('o-note').value.trim());
-      form.innerHTML = '<div class="stack" style="gap:8px"><strong>Order request sent</strong><p class="muted" style="font-size:14px">The seller can now accept or decline it. You can follow it in your dashboard, and message the seller on WhatsApp to agree pickup.</p><a class="btn btn-primary btn-block" href="dashboard.html">View my order requests</a></div>';
-      form.setAttribute('role', 'status');
+      var sendBtn = form.querySelector('button[type="submit"]'), sendLabel = sendBtn ? sendBtn.textContent : '';
+      if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending…'; }
+      App.createOrder(l.id, q, document.getElementById('o-note').value.trim()).then(function () {
+        form.innerHTML = '<div class="stack" style="gap:8px"><strong>Order request sent</strong><p class="muted" style="font-size:14px">The seller can now accept or decline it. You can follow it in your dashboard, and message the seller on WhatsApp to agree pickup.</p><a class="btn btn-primary btn-block" href="dashboard.html">View my order requests</a></div>';
+        form.setAttribute('role', 'status');
+      }, function (er) {
+        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = sendLabel; }
+        err.textContent = er.message; err.hidden = false; qty.setAttribute('aria-invalid', 'true');
+      });
     });
   }
 
@@ -202,6 +208,8 @@
   }
 
   function openWhatsApp(l, seller) {
+    if (!App.me()) { App.toast('Log in to contact the seller.'); return; }
+    if (!seller || !seller.whatsapp_number) { App.toast('This seller has not added a WhatsApp number yet.'); return; }
     var firstName = seller.full_name.split(' ')[0];
     var msg = 'Hi ' + firstName + ', I saw "' + l.title + '" (' + l.quantity + ' ' + l.unit + ') on Fashion Waste Marketplace. Is it still available?';
     var number = seller.whatsapp_number || '';
@@ -211,10 +219,10 @@
     ov.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="wa-title">' +
         '<h2 id="wa-title">Message on WhatsApp</h2>' +
-        '<p class="muted">In the real app this button opens WhatsApp with the message below already written. This prototype does not send anything, and the numbers are made up.</p>' +
+        '<p class="muted">This opens WhatsApp with the message below already written. Agree price, pickup and payment with the seller there.</p>' +
         '<div><div class="hint">To</div><strong>' + App.esc(seller.full_name) + ' · ' + App.esc(App.waShow(number)) + '</strong></div>' +
         '<div><div class="hint">Message</div><div class="msgbox" id="wa-msg">' + App.esc(msg) + '</div></div>' +
-        '<div class="row"><button type="button" class="btn btn-primary" id="wa-copy">Copy message</button><button type="button" class="btn btn-quiet" id="wa-close">Close</button></div>' +
+        '<div class="row"><a class="btn btn-wa" id="wa-open" href="https://wa.me/' + encodeURIComponent(number.replace(/\D/g, '')) + '?text=' + encodeURIComponent(msg) + '" target="_blank" rel="noopener">Open WhatsApp</a><button type="button" class="btn btn-quiet" id="wa-copy">Copy message</button><button type="button" class="btn btn-quiet" id="wa-close">Close</button></div>' +
       '</div>';
     document.body.appendChild(ov);
     var close = function () { ov.remove(); document.removeEventListener('keydown', onKey); if (lastFocus) lastFocus.focus(); };
@@ -236,7 +244,7 @@
 
   window.addEventListener('hashchange', render);
   render();
-})();
+});
 </script>
 </body>
 </html>

@@ -12,7 +12,7 @@
 <div id="nav"></div>
 <main class="wrap gutter page">
   <div class="stack" style="gap:20px">
-    <div><h1>AI Studio</h1><p class="lede" style="margin-top:6px">Five tools to describe, price, reuse and find textile waste. Every result is labelled as <strong>Live AI</strong> (answered by Claude) or <strong>Simulated</strong> (fixed rules and sample data).</p></div>
+    <div><h1>AI Studio</h1><p class="lede" style="margin-top:6px">Five tools to describe, price, reuse and find textile waste. Every result is labelled as <strong>Live AI</strong> (answered by Claude) or <strong>Simulated</strong> (fixed rules and a sample price table).</p></div>
     <div class="disclose" id="mode-box">
       <div class="row" style="justify-content:space-between;gap:12px">
         <div><strong>Engine</strong><div id="mode-status" style="margin-top:2px"></div></div>
@@ -30,8 +30,8 @@
 
     <section class="stack" style="gap:10px" aria-labelledby="what-h">
       <h2 id="what-h">What is live and what is simulated</h2>
-      <div class="table-wrap"><table class="tbl"><thead><tr><th>Feature</th><th>In this prototype</th><th>In a production version</th></tr></thead><tbody>
-        <tr><td>Fabric recognition</td><td>Claude looks at the photo when this preview allows it. Otherwise a simple colour and texture check runs in your browser.</td><td>A vision model trained on labelled textile photos, plus supplier data.</td></tr>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Feature</th><th>How it works now</th><th>In a production version</th></tr></thead><tbody>
+        <tr><td>Fabric recognition</td><td>Claude looks at the photo when a Claude connection is available. Otherwise a simple colour and texture check runs in your browser.</td><td>A vision model trained on labelled textile photos, plus supplier data.</td></tr>
         <tr><td>Value estimate</td><td>A fixed sample price table with condition and bulk factors. Claude can add a short second opinion on request.</td><td>Real price history from completed sales on the platform.</td></tr>
         <tr><td>Upcycling ideas</td><td>Curated idea lists. Claude can generate extra ideas on request.</td><td>Ideas linked to local makers and buyers.</td></tr>
         <tr><td>Smart matching</td><td>Weighted rules on fabric, price, quantity, city and condition. Claude can re-rank on request.</td><td>A recommender that learns from searches, saves and orders.</td></tr>
@@ -46,7 +46,7 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('ai');
   App.footer();
   var $ = function (id) { return document.getElementById(id); };
@@ -192,7 +192,7 @@
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (!b) return; tab = b.getAttribute('data-tab'); history.replaceState(null, '', '#' + tab); render(); });
   window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (TABS.indexOf(h) !== -1 && h !== tab) { tab = h; render(); } });
   render();
-})();
+});
 </script>
 </body>
 </html>

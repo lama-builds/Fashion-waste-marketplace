@@ -4,6 +4,9 @@ const { HttpError } = require('../server/utils');
 
 const app = express();
 app.disable('x-powered-by');
+// Listing and profile requests carry small resized pictures, so they may be larger than the 20 KB default.
+// (Vercel itself refuses request bodies over 4.5 MB.)
+app.use(['/api/listings', '/api/profiles'], express.json({ limit: '2mb' }));
 app.use(express.json({ limit: '20kb' }));
 app.use(cookieParser());
 app.use('/api', (req, res, next) => {
@@ -17,6 +20,11 @@ app.use('/api/auth', require('../server/routes/auth'));
 app.use('/api/categories', require('../server/routes/categories'));
 app.use('/api/listings', require('../server/routes/listings'));
 app.use('/api/profiles', require('../server/routes/profiles'));
+app.use('/api/bootstrap', require('../server/routes/bootstrap'));
+app.use('/api/orders', require('../server/routes/orders'));
+app.use('/api/saved', require('../server/routes/saved'));
+app.use('/api/preferences', require('../server/routes/preferences'));
+app.use('/api', require('../server/routes/media'));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route not found.' }));
 

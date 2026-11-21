@@ -1,9 +1,10 @@
-/* Shared prototype logic: sample data (mirrors the 4-table ERD), fake session, navigation, helpers.
-   No Supabase, no real login. State lives in this browser only. */
+/* Shared front-end logic: loads the marketplace from the API (GET /api/bootstrap), talks to the API for every change,
+   and holds the navigation, footer and display helpers. The data lives in Supabase; nothing but the
+   "simulated AI only" switch is kept in this browser. */
 (function () {
   'use strict';
 
-  const KEY = 'fwm_proto_v2';
+  const PREF_KEY = 'fwm_prefs_v1';
   const CITIES = ['Cairo', 'Giza', 'Alexandria', 'El Mahalla El Kubra', 'Shubra El Kheima', '10th of Ramadan City', 'Port Said', 'Mansoura'];
   const UNITS = ['meters', 'kg', 'pieces'];
   const CONDITIONS = ['new', 'like new', 'used', 'damaged'];
@@ -144,112 +145,66 @@
     return wrapSvg(s);
   }
 
-  /* ---------- sample data: profiles, categories, listings, listing_photos ---------- */
-  function seed() {
-    const categories = [[1, 'Fabric'], [2, 'New clothing'], [3, 'Used clothing'], [4, 'Trims & accessories']]
-      .map((c) => ({ id: sid(100 + c[0]), created_at: ago(60), name: c[1] }));
-    const cid = (n) => sid(100 + n);
-
-    const P = [
-      [1, 'Mona Hassan', 'seller', 'Cairo', 'mona@example.com', 90],
-      [2, 'Karim Adel', 'buyer', 'Giza', 'karim@example.com', 70],
-      [3, 'Nour El-Din Textiles', 'seller', 'El Mahalla El Kubra', 'nour@example.com', 80],
-      [4, 'Hoda Mostafa', 'seller', 'Alexandria', 'hoda@example.com', 55],
-      [5, 'Farouk Denim Works', 'seller', 'Shubra El Kheima', 'farouk@example.com', 75],
-      [6, 'Salma Ibrahim', 'seller', '10th of Ramadan City', 'salma@example.com', 40],
-      [7, 'Reem Knitwear', 'seller', 'Mansoura', 'reem@example.com', 35],
-      [8, 'Canal Garments', 'seller', 'Port Said', 'canal@example.com', 30],
-      [9, 'Layla Samir', 'buyer', 'Cairo', 'layla@example.com', 60],
-      [10, 'Studio Nakheel', 'buyer', 'Alexandria', 'nakheel@example.com', 45]
-    ];
-    const profiles = P.map((p) => ({
-      id: sid(p[0]), created_at: ago(p[5]), full_name: p[1], role: p[2],
-      phone: '+20100000' + ('0000' + p[0]).slice(-4), whatsapp_number: '+20100000' + ('0000' + p[0]).slice(-4),
-      city: p[3], avatar_url: null
-    }));
-    const authUsers = P.map((p) => ({ id: sid(p[0]), email: p[4] }));
-
-    // [n, seller, category, title, description, qty, unit, price|null(free), condition, city, status, daysAgo, photos]
-    const L = [
-      [1, 3, 1, 'Cotton poplin rolls, off-white', 'Leftover rolls from a shirt order that was cancelled. 150 cm width, about 120 g/m². Sold by the meter, minimum 10 meters.', 120, 'meters', 38, 'new', 'El Mahalla El Kubra', 'available', 2, [['roll', '#F2EEE3', '#B9B09A'], ['weave', '#F2EEE3', '#9C9378']]],
-      [2, 5, 1, 'Denim offcuts, mixed washes', 'Clean offcuts from jeans production, pieces of 30 to 60 cm. Good for patchwork, bags and fibre recycling.', 250, 'kg', 22, 'new', 'Shubra El Kheima', 'available', 3, [['twill', '#3E5F8A', '#1E2F4A'], ['twill', '#6C8DB5', '#2F4A70'], ['weave', '#2B3F5E', '#0F1B2E']]],
-      [3, 6, 2, 'Unsold summer linen dresses', 'Last season collection, tags on. Sizes S to XL in mixed colours. Better price for 10 pieces or more.', 40, 'pieces', 320, 'new', '10th of Ramadan City', 'available', 1, [['dress', '#F6E9DC', '#D17A5B'], ['dress', '#E4EEF0', '#4C8A94']]],
-      [4, 4, 1, 'Ivory wedding satin remnants', 'Remnants from bridal orders, 1 to 3 meter lengths. Smooth, with a soft sheen. Ideal for lining and small projects.', 18, 'meters', 55, 'like new', 'Alexandria', 'available', 5, [['satin', '#F3ECDD', '#D9CCAF'], ['satin', '#EFE6D2', '#CBBD9C']]],
-      [5, 1, 2, 'School uniform shirts, light blue', 'Sealed packs from a school supplier that changed its design. Mixed sizes for ages 6 to 14.', 60, 'pieces', 85, 'new', 'Cairo', 'reserved', 6, [['shirt', '#E7F0F7', '#7FA9CF'], ['stripes', '#DCE9F4', '#8FB4D8']]],
-      [6, 3, 1, 'Polyester lining offcuts', 'Mixed colours, pieces of 40 to 100 cm. Free to anyone who collects from our factory gate in El Mahalla.', 80, 'kg', null, 'new', 'El Mahalla El Kubra', 'available', 1, [['weave', '#C9D8E8', '#7C93AD'], ['weave', '#E3D2D9', '#A87D8C']]],
-      [7, 1, 3, 'Used abayas, good condition', 'Black and navy abayas, worn a few times. Mixed sizes, freshly cleaned. Sold as a lot or individually.', 12, 'pieces', 150, 'used', 'Giza', 'available', 4, [['dress', '#E9EDEC', '#1F2A2E'], ['dress', '#EEF0F3', '#26344D']]],
-      [8, 5, 4, 'Assorted zippers and shirt buttons', 'Boxed metal and plastic zippers (15 to 20 cm) and shirt buttons in several sizes. Leftover from a closed production line.', 500, 'pieces', 2, 'new', 'Shubra El Kheima', 'available', 7, [['buttons', '#F4EFE6', '#2C5F5B'], ['zip', '#EDEFF0', '#6B7C86']]],
-      [9, 6, 1, 'Heather grey cotton jersey rolls', 'Single jersey, 180 g/m². Two full rolls, minimum purchase 20 meters.', 65, 'meters', 48, 'new', '10th of Ramadan City', 'sold', 9, [['roll', '#C7CCCB', '#8B9491'], ['weave', '#C7CCCB', '#8B9491']]],
-      [10, 4, 2, 'Men\'s wool-blend winter coats', 'Unsold winter stock from last year, sizes 48 to 56. Navy and charcoal. Original labels.', 14, 'pieces', 650, 'new', 'Alexandria', 'available', 2, [['coat', '#E8ECEF', '#2E3E57'], ['coat', '#ECEDEF', '#4A4F57']]],
-      [11, 1, 1, 'Embroidered tulle offcuts', 'Small pieces of embroidered tulle left from evening wear. Free for designers and students.', 9, 'kg', null, 'like new', 'Cairo', 'available', 3, [['dots', '#F7E7EC', '#D89AB0'], ['floral', '#F7EEE8', '#D99A8F']]],
-      [12, 3, 1, 'Printed viscose, floral', 'Soft viscose with a small floral print. One roll with 95 meters left, 140 cm width.', 95, 'meters', 42, 'new', 'El Mahalla El Kubra', 'available', 8, [['floral', '#F3E3D6', '#C9674F'], ['roll', '#F3E3D6', '#C9674F']]],
-      [13, 5, 3, 'Damaged jeans for upcycling', 'Jeans with small tears or stains, sorted by wash. Good raw material for upcyclers.', 30, 'pieces', 25, 'damaged', 'Shubra El Kheima', 'available', 5, [['twill', '#4C6E99', '#243A5A'], ['plaid', '#7C9BC0', '#3A5680']]],
-      [14, 6, 4, 'Leather belts, unsold stock', 'Genuine leather belts in black and brown, sizes 90 to 115 cm. Sold in lots of 10 or more.', 70, 'pieces', 60, 'new', '10th of Ramadan City', 'reserved', 6, [['belt', '#EFE9E1', '#5B3A29'], ['belt', '#E7E7E7', '#1E1E1E']]],
-      [15, 7, 2, 'Knit sweaters, factory seconds', 'Cotton-blend sweaters with tiny stitching flaws that do not affect wear. Mixed colours, sizes M to XL.', 25, 'pieces', 180, 'like new', 'Mansoura', 'available', 4, [['stripes', '#EAF0E5', '#6D9A74'], ['shirt', '#F1ECE4', '#9A6D4F']]],
-      [16, 8, 1, 'Terry towel fabric, white', 'Heavy terry cloth rolls from a hotel linen order. 50 meters available.', 50, 'meters', 60, 'new', 'Port Said', 'available', 1, [['roll', '#F7F7F5', '#C9CFD1'], ['weave', '#F7F7F5', '#BFC6C8']]]
-    ];
-    const FAB = { 1: 'cotton', 2: 'denim', 3: 'linen', 4: 'satin', 5: 'cotton', 6: 'polyester', 7: 'polyester', 8: 'other', 9: 'jersey', 10: 'wool', 11: 'polyester', 12: 'viscose', 13: 'denim', 14: 'leather', 15: 'cotton', 16: 'terry' };
-    // Older sold lots: give the dashboards and the impact page some history to show.
-    // [n, seller, category, title, description, qty, unit, price, condition, city, status, daysAgo, photos, fabric]
-    const H = [
-      [17, 3, 1, 'Cotton drill offcuts', 'Bulk offcuts from a uniform factory, sold by the kilo.', 300, 'kg', 18, 'new', 'El Mahalla El Kubra', 'sold', 170, [['weave', '#D9CDB4', '#8E7F5E']], 'cotton'],
-      [18, 5, 1, 'Indigo denim rolls', 'Full rolls of 11 oz denim from a cancelled order.', 140, 'meters', 55, 'new', 'Shubra El Kheima', 'sold', 140, [['twill', '#3A5780', '#1B2B47']], 'denim'],
-      [19, 6, 2, 'Unsold poplin shirts', 'Boxed shirts from last season, mixed sizes.', 80, 'pieces', 140, 'new', '10th of Ramadan City', 'sold', 120, [['shirt', '#EDF1F6', '#7C9AC4']], 'cotton'],
-      [20, 4, 1, 'Champagne satin remnants', 'Remnants from evening wear orders.', 25, 'meters', 50, 'like new', 'Alexandria', 'sold', 100, [['satin', '#F0E6D2', '#CDBA95']], 'satin'],
-      [21, 3, 1, 'Viscose challis end of roll', 'Printed viscose, two rolls.', 210, 'meters', 35, 'new', 'El Mahalla El Kubra', 'sold', 90, [['floral', '#EAD8E0', '#B4607E']], 'viscose'],
-      [22, 1, 3, 'Used winter jackets', 'Gently used jackets, cleaned and sorted.', 20, 'pieces', 120, 'used', 'Cairo', 'sold', 75, [['coat', '#E9ECEE', '#4A5568']], 'other'],
-      [23, 5, 1, 'Jersey offcuts, assorted colours', 'Soft offcuts for kids\' clothing and headbands.', 180, 'kg', 14, 'new', 'Shubra El Kheima', 'sold', 55, [['stripes', '#E6EEF1', '#6A9AA8']], 'jersey'],
-      [24, 7, 2, 'Cotton knit sweaters', 'First-quality sweaters, unsold stock.', 40, 'pieces', 150, 'new', 'Mansoura', 'sold', 45, [['shirt', '#F3EEE6', '#8A7E6A']], 'cotton'],
-      [25, 8, 2, 'Terry towels, factory seconds', 'Small colour flaws, fully usable.', 60, 'pieces', 40, 'like new', 'Port Said', 'sold', 30, [['weave', '#F2F4F4', '#B9C3C6']], 'terry'],
-      [26, 6, 1, 'Natural linen offcuts', 'Washed linen pieces from a resort-wear brand.', 90, 'kg', 28, 'new', '10th of Ramadan City', 'sold', 20, [['weave', '#E5DCC8', '#A89A78']], 'linen']
-    ];
-    H.forEach((h) => { L.push(h); FAB[h[0]] = h[13]; });
-    const listings = [], photos = [];
-    L.forEach((l) => {
-      listings.push({
-        id: sid(200 + l[0]), created_at: ago(l[11], l[0]), seller_id: sid(l[1]), category_id: cid(l[2]),
-        title: l[3], description: l[4], quantity: l[5], unit: l[6], price: l[7], is_free: l[7] === null,
-        condition: l[8], city: l[9], status: l[10], fabric_type: FAB[l[0]] || 'other'
-      });
-      l[12].forEach((p, i) => photos.push({ id: sid(1000 + l[0] * 10 + i), created_at: ago(l[11], l[0]), listing_id: sid(200 + l[0]), image_url: art(p[0], p[1], p[2]), position: i }));
-    });
-
-    // [listing n, buyer profile n, quantity, status, created days ago, updated days ago]
-    const O = [
-      [17, 2, 300, 'completed', 155, 150], [18, 9, 140, 'completed', 130, 120], [19, 2, 80, 'completed', 110, 100], [20, 9, 25, 'completed', 92, 85],
-      [21, 2, 210, 'completed', 78, 70], [22, 10, 20, 'completed', 66, 60], [23, 2, 180, 'completed', 48, 40], [24, 9, 40, 'completed', 36, 30],
-      [25, 2, 60, 'completed', 24, 18], [26, 9, 90, 'completed', 14, 9], [9, 2, 65, 'completed', 6, 3],
-      [7, 2, 6, 'requested', 2, 2], [11, 2, 3, 'requested', 1, 1], [5, 2, 60, 'accepted', 3, 1], [1, 2, 30, 'requested', 1, 1], [14, 2, 70, 'accepted', 5, 2], [3, 10, 10, 'requested', 1, 1]
-    ];
-    const orders = O.map((o, i) => {
-      const l = listings.find((x) => x.id === sid(200 + o[0])), price = l.price || 0;
-      return { id: sid(3000 + i), created_at: ago(o[4]), updated_at: ago(o[5]), listing_id: l.id, buyer_id: sid(o[1]), seller_id: l.seller_id, quantity: o[2], unit_price: price, total: price * o[2], status: o[3], note: '' };
-    });
-    const saved = [[2, 1], [2, 2], [2, 12], [2, 16], [9, 2], [9, 4], [10, 6]].map((s, i) => ({ id: sid(4000 + i), created_at: ago(2 + i), user_id: sid(s[0]), listing_id: sid(200 + s[1]) }));
-    return { v: 2, authUsers, profiles, categories, listings, photos, orders, saved, prefs: {}, aiMode: 'auto', session: { userId: null }, flash: null };
-  }
-
-  /* ---------- storage: localStorage with a window.name fallback (survives page-to-page navigation) ---------- */
-  function load() {
-    let s = null;
-    try { if (window.name && window.name.indexOf('{"fwm":') === 0) s = JSON.parse(window.name).fwm; } catch (e) { s = null; }
-    if (!s) { try { const r = localStorage.getItem(KEY); if (r) s = JSON.parse(r); } catch (e) { s = null; } }
-    return s && s.v === 2 ? s : null;
-  }
+  /* ---------- state: filled from the server by GET /api/bootstrap ---------- */
+  state = { categories: [], listings: [], photos: [], orders: [], saved: [], profiles: [], prefs: {}, impact: [], feed: [], aiMode: 'auto', session: { userId: null } };
+  try { if ((JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}).aiMode === 'sim') state.aiMode = 'sim'; } catch (e) { /* ignore */ }
+  // Only the "simulated AI only" switch is remembered in this browser. Everything else lives in the database.
   function save() {
-    let str, ok = true;
-    try { str = JSON.stringify(state); } catch (e) { return false; }
-    try { localStorage.setItem(KEY, str); } catch (e) { ok = false; }
-    try { window.name = '{"fwm":' + str + '}'; } catch (e) { /* ignore */ }
-    return ok;
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ aiMode: state.aiMode })); return true; } catch (e) { return false; }
   }
-  state = load() || seed();
-  // Every account has exactly one role: buyer or seller. Older saved data may still hold "both":
-  // an account that owns listings becomes a seller, any other becomes a buyer.
-  state.profiles.forEach((p) => {
-    if (p.role !== 'buyer' && p.role !== 'seller') p.role = state.listings.some((l) => l.seller_id === p.id) ? 'seller' : 'buyer';
-  });
-  save();
+
+  /* ---------- talking to the API ---------- */
+  async function api(method, path, body) {
+    let res;
+    try {
+      res = await fetch('/api' + path, {
+        method, credentials: 'same-origin',
+        headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    } catch (e) { throw new Error('Could not reach the server. Check your connection and try again.'); }
+    let data = null;
+    if (res.status !== 204) { try { data = await res.json(); } catch (e) { data = null; } }
+    if (!res.ok) {
+      const list = data && Array.isArray(data.details) && data.details.length ? data.details.join(' ') : '';
+      const err = new Error(list || (data && data.error) || 'Something went wrong. Please try again.');
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  function applyBootstrap(d) {
+    state.categories = d.categories || []; state.listings = d.listings || []; state.photos = d.photos || [];
+    state.profiles = d.profiles || []; state.orders = d.orders || []; state.saved = d.saved || [];
+    state.impact = d.impact || []; state.feed = d.feed || [];
+    state.session.userId = d.me ? d.me.id : null;
+    state.prefs = d.me && d.prefs ? { [d.me.id]: d.prefs } : {};
+    if (d.me) {
+      const i = state.profiles.findIndex((p) => p.id === d.me.id);
+      if (i >= 0) state.profiles[i] = Object.assign({}, state.profiles[i], d.me); else state.profiles.push(d.me);
+    }
+  }
+
+  let loadError = null;
+  const readyPromise = (function () {
+    // A direct link to one listing (listing.html#<id>) also asks for that listing, even if it is sold or reserved.
+    const m = /^#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(location.hash);
+    const q = m && /listing\.html$/.test(location.pathname) ? '?listing=' + m[1] : '';
+    return api('GET', '/bootstrap' + q).then(applyBootstrap, (e) => { loadError = e; });
+  })();
+
+  /* Runs a page's code once the data has loaded. If it could not load, shows a retry message instead. */
+  function whenReady(fn) {
+    readyPromise.then(() => {
+      if (loadError) {
+        const main = document.querySelector('main') || document.body;
+        main.innerHTML = '<div class="narrow"><div class="panel stack"><h1>We could not load the marketplace</h1><p class="muted">' + esc(loadError.message) + '</p><button type="button" class="btn btn-primary" onclick="location.reload()">Try again</button></div></div>';
+        return;
+      }
+      fn();
+    });
+  }
 
   /* ---------- data access ---------- */
   const me = () => state.profiles.find((p) => p.id === state.session.userId) || null;
@@ -265,26 +220,61 @@
   function toggleSave(listingId) {
     const u = me(); if (!u) return null;
     const i = state.saved.findIndex((s) => s.user_id === u.id && s.listing_id === listingId);
-    if (i >= 0) state.saved.splice(i, 1); else state.saved.push({ id: uid(), created_at: new Date().toISOString(), user_id: u.id, listing_id: listingId });
-    save(); return i < 0;
+    if (i >= 0) {
+      const old = state.saved.splice(i, 1)[0];
+      api('DELETE', '/saved/' + listingId).catch((e) => { state.saved.push(old); toast(e.message); });
+    } else {
+      const item = { id: uid(), created_at: new Date().toISOString(), user_id: u.id, listing_id: listingId };
+      state.saved.push(item);
+      api('PUT', '/saved/' + listingId).catch((e) => { const j = state.saved.indexOf(item); if (j >= 0) state.saved.splice(j, 1); toast(e.message); });
+    }
+    return i < 0;
   }
   const ordersWhere = (fn) => state.orders.filter(fn).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  function createOrder(listingId, qty, note) {
-    const u = me(), l = listing(listingId); if (!u || !l) return null;
-    const now = new Date().toISOString(), price = l.is_free ? 0 : Number(l.price);
-    const o = { id: uid(), created_at: now, updated_at: now, listing_id: l.id, buyer_id: u.id, seller_id: l.seller_id, quantity: qty, unit_price: price, total: price * qty, status: 'requested', note: note || '' };
-    state.orders.push(o); save(); return o;
+  async function createOrder(listingId, qty, note) {
+    const d = await api('POST', '/orders', { listing_id: listingId, quantity: qty, note: note || '' });
+    state.orders.push(d.order);
+    return d.order;
   }
-  function setOrderStatus(id, status) {
-    const o = state.orders.find((x) => x.id === id); if (!o) return;
-    const l = listing(o.listing_id); o.status = status; o.updated_at = new Date().toISOString();
-    if (l) {
-      if (status === 'accepted' && o.quantity >= l.quantity && l.status === 'available') l.status = 'reserved';
-      if (status === 'completed') { if (o.quantity >= l.quantity) l.status = 'sold'; else { l.quantity -= o.quantity; if (l.status === 'reserved') l.status = 'available'; } }
-      if ((status === 'declined' || status === 'cancelled') && l.status === 'reserved' && !state.orders.some((x) => x.id !== o.id && x.listing_id === l.id && x.status === 'accepted')) l.status = 'available';
-    }
-    save();
+  async function setOrderStatus(id, status) {
+    const d = await api('PATCH', '/orders/' + id, { status });
+    const i = state.orders.findIndex((x) => x.id === id);
+    if (i >= 0) state.orders[i] = d.order; else state.orders.push(d.order);
+    if (d.listing) { const l = listing(d.listing.id); if (l) { l.status = d.listing.status; l.quantity = d.listing.quantity; } }
+    return d.order;
   }
+
+  /* ---------- listings, profile, preferences, accounts ---------- */
+  async function createListing(payload) {
+    const d = await api('POST', '/listings', payload);
+    const photos = d.photos || []; delete d.photos;
+    state.listings.unshift(d);
+    photos.forEach((p) => state.photos.push(p));
+    return d;
+  }
+  async function updateListing(id, patch) {
+    const d = await api('PATCH', '/listings/' + id, patch);
+    const l = listing(id); if (l) Object.assign(l, d);
+    return d;
+  }
+  async function deleteListing(id) {
+    await api('DELETE', '/listings/' + id);
+    state.listings = state.listings.filter((l) => l.id !== id);
+    state.photos = state.photos.filter((p) => p.listing_id !== id);
+    state.saved = state.saved.filter((s) => s.listing_id !== id);
+    state.orders = state.orders.filter((o) => o.listing_id !== id);
+  }
+  async function saveProfile(patch) {
+    const d = await api('PATCH', '/profiles/me', patch);
+    const i = state.profiles.findIndex((p) => p.id === state.session.userId);
+    if (i >= 0) state.profiles[i] = Object.assign({}, state.profiles[i], d); else state.profiles.push(d);
+    return d;
+  }
+  function savePrefs(p) {
+    api('PUT', '/preferences', p).catch((e) => toast('Preferences were not saved: ' + e.message));
+  }
+  const signIn = (email, password) => api('POST', '/auth/login', { email, password });
+  const signUp = (payload) => api('POST', '/auth/register', payload);
   const pendingFor = (userId) => state.orders.filter((o) => o.seller_id === userId && o.status === 'requested').length;
   const ORDER_LABEL = { requested: 'Requested', accepted: 'Accepted', declined: 'Declined', completed: 'Completed', cancelled: 'Cancelled' };
   const orderBadge = (s) => '<span class="badge o-' + esc(s) + '">' + (ORDER_LABEL[s] || cap(s)) + '</span>';
@@ -336,7 +326,8 @@
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
   }
-  function flash(msg) { state.flash = msg; save(); }
+  function flash(msg) { try { sessionStorage.setItem('fwm_flash', msg); } catch (e) { /* ignore */ } }
+  function takeFlash() { try { const m = sessionStorage.getItem('fwm_flash'); if (m) sessionStorage.removeItem('fwm_flash'); return m; } catch (e) { return null; } }
 
   function resizeImage(file, max, q) {
     return new Promise((resolve, reject) => {
@@ -350,7 +341,11 @@
           const c = document.createElement('canvas');
           c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
           const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
-          try { resolve(c.toDataURL('image/jpeg', q)); } catch (e) { reject(e); }
+          try {
+            let k2 = q, out = c.toDataURL('image/jpeg', k2);
+            while (out.length > 330000 && k2 > 0.3) { k2 -= 0.15; out = c.toDataURL('image/jpeg', k2); } // keep each picture small enough to upload
+            resolve(out);
+          } catch (e) { reject(e); }
         };
         img.src = r.result;
       };
@@ -375,8 +370,9 @@
   };
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
-  function logout() {
-    state.session.userId = null; state.flash = 'You are logged out.'; save();
+  async function logout() {
+    try { await api('POST', '/auth/logout'); } catch (e) { /* the cookie may already be gone */ }
+    flash('You are logged out.');
     location.href = 'index.html';
   }
 
@@ -428,7 +424,7 @@
     el.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
     document.getElementById('menu-btn').addEventListener('click', (e) => openMenu(e.currentTarget, user, active));
     decoratePage(active);
-    if (state.flash) { toast(state.flash); state.flash = null; save(); }
+    const note = takeFlash(); if (note) toast(note);
   }
 
   /* Decorative imagery for inner pages: a fabric-swatch banner under the nav, or a split image panel on the log-in page. */
@@ -459,15 +455,14 @@
     el.innerHTML = '<div class="sf-grid"><div class="sf-brand"><strong>Fashion Waste Marketplace</strong><p>A marketplace for leftover fabric, unsold stock and pre-loved garments across Egypt.</p></div>' +
       '<nav aria-label="Marketplace"><h3>Marketplace</h3><a href="index.html#browse">Browse materials</a><a href="ai-studio.html">AI Studio</a><a href="impact.html">Impact</a></nav>' +
       '<nav aria-label="Account"><h3>Your account</h3>' + (u ? '<a href="dashboard.html">Dashboard</a>' : '<a href="auth.html">Log in or sign up</a>') + (u && u.role === 'seller' ? '<a href="my-listings.html">My listings</a>' : '') + (buyer ? '' : '<a href="create.html">Sell materials</a>') + (u ? '<a href="profile.html">Profile</a>' : '') + '</nav></div>' +
-      '<div class="sf-note"><span>Prototype with sample data stored in this browser. No real accounts, payments or WhatsApp messages.</span><button type="button" class="linkbtn" id="reset-demo">Reset sample data</button></div>';
-    document.getElementById('reset-demo').addEventListener('click', () => { state = seed(); save(); location.href = 'index.html'; });
+      '<div class="sf-note"><span>Buyers and sellers arrange payment and pickup directly on WhatsApp. No payments are taken on this site.</span></div>';
   }
 
   /* Shows a message instead of the page when the visitor must log in or must be a seller. Returns true when allowed. */
   function gate(container, needSeller) {
     const user = me();
     if (!user) {
-      container.innerHTML = '<div class="narrow"><div class="panel stack"><h1>Log in to continue</h1><p class="muted">You need an account to use this page. Logging in takes a few seconds in this prototype.</p><a class="btn btn-primary" href="auth.html">Log in or sign up</a></div></div>';
+      container.innerHTML = '<div class="narrow"><div class="panel stack"><h1>Log in to continue</h1><p class="muted">You need an account to use this page. Logging in or signing up takes a few seconds.</p><a class="btn btn-primary" href="auth.html">Log in or sign up</a></div></div>';
       return false;
     }
     if (needSeller && user.role !== 'seller') {
@@ -485,6 +480,6 @@
     media, badge, orderBadge, avatar, priceHTML, fillSelect, toast, flash, resizeImage, fabricName,
     isSaved, savesOf, toggleSave, ordersWhere, createOrder, setOrderStatus, pendingFor, cardHTML, bindSave,
     renderNav, footer, gate, logout, svg,
-    login(id) { state.session.userId = id; save(); }
+    api, whenReady, createListing, updateListing, deleteListing, saveProfile, savePrefs, signIn, signUp
   };
 })();

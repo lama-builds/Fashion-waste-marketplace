@@ -114,7 +114,7 @@
     catRules.forEach((r) => r[1].forEach((a) => { if (!f.cat && byName(r[0]) && t.indexOf(' ' + a + ' ') !== -1) { f.cat = byName(r[0]).id; chips.push(r[0]); t = t.split(' ' + a + ' ').join('  '); } }));
 
     const hay = App.state.listings.filter((l) => l.status === 'available').map((l) => (l.title + ' ' + l.description).toLowerCase()).join(' ');
-    const words = t.split(/[^a-z0-9؀-ۿ'-]+/).filter(Boolean);
+    const words = t.split(/[^a-z0-9\u0600-\u06FF'-]+/).filter(Boolean);
     const keep = [];
     words.forEach((w) => {
       if (STOP.indexOf(w) !== -1 || /^\d/.test(w) || w.length < 3) return;
@@ -349,7 +349,7 @@
     return { engine: 'sim', items: base.slice(0, 6), reason: r.reason };
   }
   function prefsFor(userId) { const p = (App.state.prefs || {})[userId]; return p ? Object.assign(defaultPrefs(), p) : defaultPrefs(); }
-  function savePrefs(userId, p) { App.state.prefs = App.state.prefs || {}; App.state.prefs[userId] = p; App.save(); }
+  function savePrefs(userId, p) { App.state.prefs = App.state.prefs || {}; App.state.prefs[userId] = p; App.savePrefs(p); }
 
   window.AI = {
     FABRICS, fabricLabel, FACTORS, kgOf, listingKg, orderKg, sumKg, availableKg, impactOf, fmt, catName,

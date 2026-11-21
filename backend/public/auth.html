@@ -17,7 +17,7 @@
 
 <script src="app.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('auth');
   App.footer();
   var content = document.getElementById('content');
@@ -49,13 +49,9 @@
           '<button type="button" role="tab" id="t-signup" aria-selected="' + (tab === 'signup') + '">Sign up</button>' +
         '</div>' +
         '<div class="panel" id="pane"></div>' +
-        '<div class="panel stack"><h2>Try a demo account</h2><p class="muted" style="font-size:14px">Skip the form and explore with sample data.</p>' +
-          '<div class="row"><button type="button" class="btn btn-quiet" id="demo-seller">Demo seller (Mona)</button><button type="button" class="btn btn-quiet" id="demo-buyer">Demo buyer (Karim)</button></div></div>' +
       '</div>';
     document.getElementById('t-login').addEventListener('click', function () { renderPane('login'); setTabs('login'); });
     document.getElementById('t-signup').addEventListener('click', function () { renderPane('signup'); setTabs('signup'); });
-    document.getElementById('demo-seller').addEventListener('click', function () { App.login(App.state.profiles[0].id); afterLogin('Logged in as Mona Hassan.'); });
-    document.getElementById('demo-buyer').addEventListener('click', function () { App.login(App.state.profiles[1].id); afterLogin('Logged in as Karim Adel.'); });
     renderPane(tab);
   }
 
@@ -74,20 +70,25 @@
       pane.innerHTML =
         '<form id="login-form" class="stack" novalidate>' +
           '<div id="errs"></div>' +
-          '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="email" placeholder="mona@example.com"></div>' +
-          '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password"><span class="hint">Prototype: any password works for an existing email.</span></div>' +
+          '<div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="email" placeholder="you@example.com"></div>' +
+          '<div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password"></div>' +
           '<button class="btn btn-primary btn-block" type="submit">Log in</button>' +
         '</form>';
       document.getElementById('login-form').addEventListener('submit', function (e) {
         e.preventDefault();
         var email = document.getElementById('l-email').value.trim().toLowerCase();
+        var pass = document.getElementById('l-pass').value;
         var errs = [];
         if (!email) errs.push('Enter your email.');
-        var au = email && App.state.authUsers.find(function (a) { return a.email === email; });
-        if (email && !au) errs.push('No account uses this email. Try a demo account or sign up.');
+        if (!pass) errs.push('Enter your password.');
         if (errs.length) { showErrors(document.getElementById('errs'), errs); return; }
-        App.login(au.id);
-        afterLogin('Welcome back, ' + App.me().full_name.split(' ')[0] + '.');
+        var btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Logging in…';
+        App.signIn(email, pass).then(function (d) {
+          afterLogin('Welcome back, ' + String(d.user.full_name || 'friend').split(' ')[0] + '.');
+        }, function (err) {
+          btn.disabled = false; btn.textContent = 'Log in';
+          showErrors(document.getElementById('errs'), [err.message]);
+        });
       });
     } else {
       pane.innerHTML =
@@ -95,7 +96,7 @@
           '<div id="errs"></div>' +
           '<div class="field"><label for="s-name">Full name</label><input id="s-name" type="text" autocomplete="name" placeholder="Your name or business name"></div>' +
           '<div class="field"><label for="s-email">Email</label><input id="s-email" type="email" autocomplete="email"></div>' +
-          '<div class="field"><label for="s-pass">Password</label><input id="s-pass" type="password" autocomplete="new-password"><span class="hint">At least 6 characters.</span></div>' +
+          '<div class="field"><label for="s-pass">Password</label><input id="s-pass" type="password" autocomplete="new-password"><span class="hint">At least 8 characters.</span></div>' +
           '<fieldset class="field"><legend class="label">I am a</legend>' +
             '<div class="pick-row">' +
               '<label class="pick"><input type="radio" name="role" value="buyer" checked><span>Buyer</span></label>' +
@@ -115,23 +116,26 @@
         var errs = [];
         if (!name) errs.push('Enter your full name.');
         if (!/^\S+@\S+\.\S+$/.test(email)) errs.push('Enter a valid email address.');
-        else if (App.state.authUsers.some(function (a) { return a.email === email; })) errs.push('An account with this email already exists. Log in instead.');
-        if (pass.length < 6) errs.push('Use a password with at least 6 characters.');
+        if (pass.length < 8) errs.push('Use a password with at least 8 characters.');
         if (waRaw && !wa) errs.push('Enter an Egyptian mobile number, for example 01012345678.');
         if (!waRaw && role === 'seller') errs.push('Sellers need a WhatsApp number so buyers can reach them.');
         if (errs.length) { showErrors(document.getElementById('errs'), errs); return; }
-        var id = App.uid(), now = new Date().toISOString();
-        App.state.authUsers.push({ id: id, email: email });
-        App.state.profiles.push({ id: id, created_at: now, full_name: name, role: role, phone: wa || '', whatsapp_number: wa || '', city: '', avatar_url: null });
-        App.login(id);
-        afterLogin('Account created. Welcome, ' + name.split(' ')[0] + '.');
+        var btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Creating account…';
+        var body = { full_name: name, email: email, password: pass, role: role };
+        if (wa) { body.whatsapp_number = wa; body.phone = wa; }
+        App.signUp(body).then(function () {
+          afterLogin('Account created. Welcome, ' + name.split(' ')[0] + '.');
+        }, function (err) {
+          btn.disabled = false; btn.textContent = 'Create account';
+          showErrors(document.getElementById('errs'), [err.status === 409 ? 'An account with this email already exists. Log in instead.' : err.message]);
+        });
       });
     }
   }
 
   window.addEventListener('hashchange', function () { if (!App.me()) { var t = location.hash === '#signup' ? 'signup' : 'login'; renderPane(t); setTabs(t); } });
   render();
-})();
+});
 </script>
 </body>
 </html>

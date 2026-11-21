@@ -18,11 +18,11 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('impact');
   App.footer();
   var esc = App.esc, F = AI.FACTORS;
-  var done = App.state.orders.filter(function (o) { return o.status === 'completed'; });
+  var done = App.state.impact; // anonymous completed orders from the whole marketplace
   var kg = AI.sumKg(done), imp = AI.impactOf(kg), waiting = AI.availableKg(), wimp = AI.impactOf(waiting);
   function kpi(v, label, sub) { return '<div class="stat"><b>' + v + '</b><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
 
@@ -52,14 +52,14 @@
   ];
 
   document.getElementById('content').innerHTML =
-    '<div><h1>Sustainability impact</h1><p class="lede" style="margin-top:6px">How much textile this marketplace keeps in use. Numbers come from the sample orders in this prototype and from placeholder factors, so treat them as illustrations, not audited results.</p></div>' +
+    '<div><h1>Sustainability impact</h1><p class="lede" style="margin-top:6px">How much textile this marketplace keeps in use. Numbers come from completed orders on this marketplace and from placeholder factors, so treat them as illustrations, not audited results.</p></div>' +
     '<section class="stack" style="gap:12px" aria-label="Key figures"><div class="kpis four">' +
       kpi(AI.fmt(kg) + ' kg', 'Textile reused', 'From ' + done.length + ' completed orders') +
       kpi(AI.fmt(imp.co2 / 1000, 1) + ' t', 'CO2e avoided', 'Estimate') +
       kpi(AI.fmt(imp.water / 1000) + ' m³', 'Water saved', 'Estimate') +
       kpi(AI.fmt(imp.tshirts), 'T-shirt equivalents', 'Of fabric kept in use') +
     '</div></section>' +
-    '<section class="cols two"><div class="ai-card"><header><h2 style="font-size:18px">Reused per month</h2><span class="engine sim">Sample data</span></header>' + chart + '<p class="hint">Kilograms from orders marked completed, by month.</p></div>' +
+    '<section class="cols two"><div class="ai-card"><header><h2 style="font-size:18px">Reused per month</h2><span class="engine sim">Completed orders</span></header>' + chart + '<p class="hint">Kilograms from orders marked completed, by month.</p></div>' +
       '<div class="ai-card"><header><h2 style="font-size:18px">Reused by fabric</h2></header><div class="stack" style="gap:10px">' + bars + '</div></div></section>' +
     '<section class="band" style="grid-template-columns:1fr"><div><h2>Waiting for a second life</h2><p class="muted" style="margin-top:4px"><strong>' + AI.fmt(waiting) + ' kg</strong> is listed and available right now. If it is all reused it avoids about <strong>' + AI.fmt(wimp.co2 / 1000, 1) + ' t</strong> of CO2e and <strong>' + AI.fmt(wimp.water / 1000) + ' m³</strong> of water.</p></div><div class="row"><a class="btn btn-primary" href="index.html#browse">Browse materials</a><a class="btn btn-quiet" href="create.html">List your surplus</a></div></section>' +
     '<section class="stack" style="gap:12px"><div class="section-head"><h2>How circular fashion works here</h2><p>Keeping materials in the loop</p></div><ol class="flow">' +
@@ -74,8 +74,8 @@
       '<div class="ai-card"><h3>Design for the next life</h3><p class="muted">Upcycling ideas on each listing show what a lot can become, from bags to home textiles.</p></div></div></section>' +
     '<section class="stack" style="gap:12px" id="assumptions"><div class="section-head"><h2>Assumptions behind the numbers</h2><p>Placeholders to verify before any public claim</p></div>' +
       '<div class="table-wrap"><table class="tbl"><thead><tr><th>Factor</th><th>Value used</th><th>Note</th></tr></thead><tbody>' + factorRows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-      '<div class="disclose"><strong>Prototype notice.</strong> Orders and listings are sample data stored in this browser. The environmental factors are rough placeholders, not measured or certified. A production version should use fibre-specific life-cycle data and confirm quantities with weighed hand-overs.</div></section>';
-})();
+      '<div class="disclose"><strong>Notice.</strong> The figures count completed orders on this marketplace. The environmental factors are rough placeholders, not measured or certified. A production version should use fibre-specific life-cycle data and confirm quantities with weighed hand-overs.</div></section>';
+});
 </script>
 </body>
 </html>

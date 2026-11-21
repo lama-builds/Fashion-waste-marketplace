@@ -18,7 +18,7 @@
 <script src="app.js"></script>
 <script src="ai.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('mine');
   App.footer();
   var content = document.getElementById('content');
@@ -91,25 +91,25 @@
       var l = App.listing(t.getAttribute('data-id'));
       var s = t.getAttribute('data-status');
       if (l && l.status !== s) {
-        l.status = s; App.save(); render();
-        App.toast('Marked as ' + s + '.' + (s === 'available' ? '' : ' It no longer shows in Browse.'));
+        App.updateListing(l.id, { status: s }).then(function () {
+          render();
+          App.toast('Marked as ' + s + '.' + (s === 'available' ? '' : ' It no longer shows in Browse.'));
+        }, function (err) { App.toast(err.message); });
       }
       return;
     }
     if ((t = e.target.closest('[data-del]'))) { confirmId = t.getAttribute('data-del'); render(); return; }
     if (e.target.closest('[data-del-no]')) { confirmId = null; render(); return; }
     if ((t = e.target.closest('[data-del-yes]'))) {
-      var id = t.getAttribute('data-del-yes'), st = App.state;
-      st.listings = st.listings.filter(function (x) { return x.id !== id; });
-      st.photos = st.photos.filter(function (p) { return p.listing_id !== id; });
-      st.saved = st.saved.filter(function (x) { return x.listing_id !== id; });
-      st.orders = st.orders.filter(function (o) { return o.listing_id !== id; });
-      confirmId = null; App.save(); render(); App.toast('Listing deleted.');
+      var id = t.getAttribute('data-del-yes');
+      App.deleteListing(id).then(function () {
+        confirmId = null; render(); App.toast('Listing deleted.');
+      }, function (err) { confirmId = null; render(); App.toast(err.message); });
     }
   });
 
   render();
-})();
+});
 </script>
 </body>
 </html>

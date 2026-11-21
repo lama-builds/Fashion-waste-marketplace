@@ -17,7 +17,7 @@
 
 <script src="app.js"></script>
 <script>
-(function () {
+App.whenReady(function () {
   App.renderNav('profile');
   App.footer();
   var content = document.getElementById('content');
@@ -92,16 +92,26 @@
       return;
     }
     $('errs').innerHTML = '';
-    user.full_name = name; user.role = role; user.phone = phone || ''; user.whatsapp_number = wa || '';
-    user.city = $('city').value; user.avatar_url = avatarUrl;
-    App.save();
-    App.renderNav('profile');
-    $('name-h').textContent = name;
-    document.querySelector('.profile-head .muted').textContent = App.cap(role) + ' · Member since ' + App.monthYear(user.created_at);
-    $('phone').value = App.waShow(user.phone); $('whatsapp_number').value = App.waShow(user.whatsapp_number);
-    App.toast('Profile saved.');
+    var patch = { full_name: name, role: role, phone: phone || null, whatsapp_number: wa || null, city: $('city').value || null };
+    if (avatarUrl && /^data:/.test(avatarUrl)) patch.avatar_url = avatarUrl;      // a new picture was chosen
+    else if (!avatarUrl && user.avatar_url) patch.avatar_url = null;               // the picture was removed
+    var btn = e.target.querySelector('button[type="submit"]'), label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    App.saveProfile(patch).then(function () {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      user = App.me(); avatarUrl = user.avatar_url || null;
+      App.renderNav('profile');
+      $('name-h').textContent = name;
+      $('av').innerHTML = headHTML();
+      document.querySelector('.profile-head .muted').textContent = App.cap(user.role) + ' · Member since ' + App.monthYear(user.created_at);
+      $('phone').value = App.waShow(user.phone || ''); $('whatsapp_number').value = App.waShow(user.whatsapp_number || '');
+      App.toast('Profile saved.');
+    }, function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      $('errs').innerHTML = '<div class="alert" role="alert"><strong>Your profile was not saved</strong><ul><li>' + App.esc(err.message) + '</li></ul></div>';
+    });
   });
-})();
+});
 </script>
 </body>
 </html>
